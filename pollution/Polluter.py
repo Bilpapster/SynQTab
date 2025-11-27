@@ -6,32 +6,32 @@ from jenga.corruptions.generic import MissingValues
 from jenga.corruptions.numerical import Scaling
 from jenga.corruptions.generic import CategoricalShift
 
-class CorruptionType(Enum):
+class Polluter(Enum):
     """
-    Enum for corruption types. Currently, it includes:
+    Enum for pollution types. Currently, it includes:
     - MCAR: Missing Completely At Random
     - SCAR: Scaling Completely At Random
     - CSCAR: Categorial Shift Completely At Random
-    The corruption types are inspired by the work of Schelter et al. (Jenga)
+    The pollution types are inspired by the work of Schelter et al. (Jenga)
     https://github.com/schelterlabs/jenga
     """
     MCAR = 'MCAR' # Missing Completely At Random
     SCAR = 'SCAR' # Scaling Completely At Random
     CSCAR = 'CSCAR' # Categorial Shift Completely At Random
 
-    NONE = 'NONE' # No corruption. Introduced to make the code more readable, especially for the clean-clean mode.
+    NONE = 'NONE' # No pollution. Introduced to make the code more readable, especially for the clean-clean mode.
 
 
     def get_compatible_corruption_percents_from_candidates(self, candidate_percents: list[int | float]) -> list[int | float]:
         """
-        Get the compatible corruption percents from the candidate percents.
+        Get the compatible pollution percents from the candidate percents.
         Args:
-            candidate_percents (list): List of candidate corruption percents.
+            candidate_percents (list): List of candidate pollution percents.
         Returns:
-            list: List of compatible corruption percents.
+            list: List of compatible pollution percents.
         """
         match self:
-            case CorruptionType.NONE:
+            case Polluter.NONE:
                 return [0]
             case _:
                 return [percent for percent in candidate_percents if 0 < percent <= 100]
@@ -41,16 +41,16 @@ class CorruptionType(Enum):
                 row_percent: int | float, column_percent: int | float) -> tuple:
 
         if not 0 <= row_percent <= 100:
-            raise ValueError(f"Row corruption percent must be between 0 and 100. Got {row_percent}.")
+            raise ValueError(f"Row pollution percent must be between 0 and 100. Got {row_percent}.")
         if not 0 <= column_percent <= 100:
-            raise ValueError(f"Column corruption percent must be between 0 and 100. Got {column_percent}.")
+            raise ValueError(f"Column pollution percent must be between 0 and 100. Got {column_percent}.")
         if data.shape[0] == 0 or data.shape[1] == 0:
             raise ValueError("Data must not be empty.")
         if row_percent == 0 or column_percent == 0:
             # If either row or column percent is 0, return the original data
             return data, [], [] # -> original_data, corrupted_rows (empty), corrupted_columns (empty)
-        if self == CorruptionType.NONE:
-            # If no corruption should be applied, return the original data
+        if self == Polluter.NONE:
+            # If no pollution should be applied, return the original data
             return data, [], []
 
         corrupted_data = data.copy(deep=True)
@@ -86,7 +86,7 @@ class CorruptionType(Enum):
         """
         match self:
             # corruptions code based on: https://github.com/schelterlabs/jenga/blob/master/notebooks/corruptions.ipynb
-            case CorruptionType.MCAR:
+            case Polluter.MCAR:
                 # missing values is generic and can be applied to any column (categorical or numeric)
                 corrupted_columns = corrupted_columns_generic
                 corrupted_subset = data.loc[corrupted_rows, corrupted_columns]
@@ -94,7 +94,7 @@ class CorruptionType(Enum):
                     corrupted_subset[column] = MissingValues(column=column, fraction=1, missingness='MCAR') \
                         .transform(corrupted_subset)[column]
 
-            case CorruptionType.SCAR:
+            case Polluter.SCAR:
                 # scaling is only for numeric columns
                 if len(corrupted_columns_numeric) == 0:
                     return data, [], []  # no numeric columns to corrupt; this should be handled in the experiment mode
@@ -105,15 +105,15 @@ class CorruptionType(Enum):
                     corrupted_subset[column] = Scaling(column=column, fraction=1, sampling='MCAR') \
                         .transform(corrupted_subset)[column]
 
-            case CorruptionType.CSCAR:
+            case Polluter.CSCAR:
                 # categorical shift is only for categorical columns
                 if len(corrupted_columns_categorical) == 0:
                     return data, [], []  # no categorical columns to corrupt; this should be handled in the experiment mode
 
                 corrupted_columns = corrupted_columns_categorical
                 corrupted_subset = data.loc[corrupted_rows, corrupted_columns]
-                """ We need a (deep) copy, so that (after corruption) we can find the actually corrupted rows. 
-                Missing Values & Scaling do not need this; corruption to all specified rows is guaranteed. """
+                """ We need a (deep) copy, so that (after pollution) we can find the actually corrupted rows. 
+                Missing Values & Scaling do not need this; pollution to all specified rows is guaranteed. """
                 corrupted_subset_copy = corrupted_subset.copy(deep=True)
                 for column in corrupted_columns:
                     corrupted_subset[column] = CategoricalShift(column=column, fraction=1, sampling='MCAR') \
