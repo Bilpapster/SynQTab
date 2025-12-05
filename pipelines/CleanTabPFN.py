@@ -57,9 +57,9 @@ class CleanTabPFN(Pipeline):
             raise
 
 if __name__ == "__main__":
-    settings = TabPFNSettings(n_sgld_steps=1,
+    settings = TabPFNSettings(n_sgld_steps=10,
                               n_samples=1000,
                               balance_classes=False)
 
     pipeline = CleanTabPFN(model_settings=settings)
-    pipeline.run(dataset_name="Amazon_employee_access", max_rows=1000)
+    pipeline.run(dataset_name="Amazon_employee_access")
