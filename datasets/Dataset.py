@@ -41,8 +41,8 @@ class Dataset:
         self.max_rows = max_rows
 
         # Establish project root to construct absolute paths
-        self.project_root = Path(__file__).parent.parent.resolve()
-        self.dataset_path = self.project_root / "tabarena_datasets" / f"{self.dataset_name}.csv"
+        self.project_root = "/kaggle/input/amazon-employee-access/"
+        self.dataset_path = self.project_root / f"{self.dataset_name}.csv"
         self.schema = None
 
         yaml_info = self._fetch_yaml()
@@ -99,7 +99,6 @@ class Dataset:
         """
         settings_path = (
                 self.project_root
-                / "tabarena_datasets"
                 / f"{self.dataset_name}.yaml"
         )
 
