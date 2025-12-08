@@ -1,14 +1,9 @@
-import os
-import shutil
-import subprocess
-import sys
 from pathlib import Path
 
 import pandas as pd
 import yaml
 from numpy import ndarray
-from pandas import DataFrame
-
+from utils.utils import read_table_from_db
 
 class Dataset:
     """
@@ -41,8 +36,6 @@ class Dataset:
         self.max_rows = max_rows
 
         # Establish project root to construct absolute paths
-        self.project_root = Path("/kaggle/input/amazon-employee-access/")
-        self.dataset_path = self.project_root / f"{self.dataset_name}.csv"
         self.schema = None
 
         yaml_info = self._fetch_yaml()
@@ -59,7 +52,6 @@ class Dataset:
         """
         return {
             "dataset_name": self.dataset_name,
-            "dataset_path": self.dataset_path,
             "problem_type": self.problem_type,
             "target_feature": self.target_feature,
             "categorical_features": self.categorical_features
@@ -75,13 +67,8 @@ class Dataset:
         Raises:
             FileNotFoundError: If the dataset CSV file does not exist.
         """
-        import os
-        import pandas as pd
 
-        if not os.path.exists(self.dataset_path):
-            raise FileNotFoundError(f"Dataset not found at path: {self.dataset_path}")
-
-        dataset = pd.read_csv(self.dataset_path)
+        dataset = read_table_from_db(self.dataset_name)
 
         if self.max_rows is not None and len(dataset) > self.max_rows:
             dataset = dataset.sample(n=self.max_rows, random_state=42).reset_index(drop=True)
@@ -91,24 +78,57 @@ class Dataset:
 
     def _fetch_yaml(self) -> dict:
         """
-        Reads settings from the dataset's YAML file.
-
-        Returns:
-            A dictionary containing 'problem_type', 'target_feature',
-            and 'categorical_features'.
+        Reads settings from the dataset's YAML table row and normalizes types:
+        - `problem_type` and `target_feature` -> strings or None
+        - `categorical_features` -> list
         """
-        settings_path = (
-                self.project_root
-                / f"{self.dataset_name}.yaml"
-        )
+        info = read_table_from_db(f"{self.dataset_name}_metadata")
 
-        with settings_path.open("r") as f:
-            info = yaml.safe_load(f)
+        # Normalize row to a dict
+        if isinstance(info, pd.DataFrame):
+            row = info.iloc[0].to_dict() if not info.empty else {}
+        elif isinstance(info, pd.Series):
+            row = info.to_dict()
+        elif isinstance(info, dict):
+            row = info
+        else:
+            row = {}
+
+        def _parse_raw(val):
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return None
+            if isinstance(val, (list, tuple, set)):
+                return list(val)
+            if isinstance(val, str):
+                try:
+                    parsed = yaml.safe_load(val)
+                    return parsed
+                except Exception:
+                    return val
+            return val
+
+        def _as_string(val):
+            v = _parse_raw(val)
+            if v is None:
+                return None
+            if isinstance(v, list):
+                return None if not v else str(v[0])
+            return str(v)
+
+        def _as_list(val):
+            v = _parse_raw(val)
+            if v is None:
+                return []
+            if isinstance(v, list):
+                return v
+            if isinstance(v, str):
+                return [v]
+            return [v]
 
         return {
-            "problem_type": info.get("problem_type"),
-            "target_feature": info.get("target_feature"),
-            "categorical_features": info.get("categorical_features", []),
+            "problem_type": _as_string(row.get("problem_type")),
+            "target_feature": _as_string(row.get("target_feature")),
+            "categorical_features": _as_list(row.get("categorical_features", [])),
         }
 
     def split_x_y(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:

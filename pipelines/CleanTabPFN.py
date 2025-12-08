@@ -5,7 +5,6 @@ from datasets.Dataset import Dataset
 from generators import TabPFN
 from pipelines.Pipeline import Pipeline
 from utils.utils import write_dataframe_to_db, get_logger
-import torch
 
 logger = get_logger(__name__)
 
@@ -64,4 +63,4 @@ if __name__ == "__main__":
                               balance_classes=False)
 
     pipeline = CleanTabPFN(model_settings=settings)
-    pipeline.run(dataset_name="Amazon_employee_access")
+    pipeline.run(dataset_name="amazon_employee_access")

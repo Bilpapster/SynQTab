@@ -101,7 +101,38 @@ def write_dataframe_to_db(
             method=method,
             chunksize=chunksize,
         )
-        logging.info("Wrote %d rows to %s.%s", len(df), schema, table_name)
+        print("Wrote %d rows to %s.%s", len(df), schema, table_name)
     except Exception:
         logging.exception("Failed to write DataFrame to %s.%s", schema, table_name)
+        raise
+
+# python
+def read_table_from_db(
+    table_name: str,
+    schema: str = "public",
+    engine: Optional[Engine] = None,
+    columns: Optional[list] = None,
+    index_col: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Read a table from Postgres and return it as a pandas DataFrame.
+
+    - If `engine` is None, creates one using `create_db_engine`.
+    - `columns` can be a list of column names to read.
+    - `index_col` can be set to a column name to use as the DataFrame index.
+    """
+    logger = get_logger(__name__)
+    if engine is None:
+        engine = create_db_engine()
+
+    try:
+        if columns is None:
+            df = pd.read_sql_table(table_name, con=engine, schema=schema, index_col=index_col)
+        else:
+            df = pd.read_sql_table(table_name, con=engine, schema=schema, columns=columns, index_col=index_col)
+
+        logger.info("Read %d rows from %s.%s", len(df), schema, table_name)
+        return df
+    except Exception:
+        logger.exception("Failed to read table %s.%s", schema, table_name)
         raise
