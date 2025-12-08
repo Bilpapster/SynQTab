@@ -63,4 +63,4 @@ if __name__ == "__main__":
                               balance_classes=False)
 
     pipeline = CleanTabPFN(model_settings=settings)
-    pipeline.run(dataset_name="amazon_employee_access")
+    pipeline.run(dataset_name="amazon_employee_access", max_rows=1000)
