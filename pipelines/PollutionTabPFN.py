@@ -79,15 +79,15 @@ class PollutionTabPFN(Pipeline):
         table_name = self._default_table_name(dataset_name)
 
         try:
-            write_dataframe_to_db(df, table_name=table_name, if_exists="replace")
+            write_dataframe_to_db(df, table_name=table_name, if_exists="replace", schema='tabpfn_dirty')
             logger.info("Wrote synthetic data to table=%s", table_name)
         except Exception:
             logger.exception("Failed to write dataframe to DB")
             raise
 
 if __name__ == "__main__":
-    model_settings = TabPFNSettings(n_sgld_steps=1,
-                              n_samples=1,
+    model_settings = TabPFNSettings(n_sgld_steps=1000,
+                              n_samples=1000,
                               balance_classes=False)
 
     pollution_settings = PollutionSettings(type="MCAR",

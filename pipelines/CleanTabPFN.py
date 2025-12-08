@@ -51,14 +51,14 @@ class CleanTabPFN(Pipeline):
         df = data_config.concatenate_X_y(X_synth, y_synth)
         table_name = self._default_table_name(dataset_name)
         try:
-            write_dataframe_to_db(df, table_name=table_name, if_exists="replace")
+            write_dataframe_to_db(df, table_name=table_name, if_exists="replace", schema='tabpfn_clean')
             logger.info("Wrote synthetic data to table=%s", table_name)
         except Exception:
             logger.exception("Failed to write dataframe to DB for table=%s", table_name)
             raise
 
 if __name__ == "__main__":
-    settings = TabPFNSettings(n_sgld_steps=10,
+    settings = TabPFNSettings(n_sgld_steps=1000,
                               n_samples=1000,
                               balance_classes=False)
 
