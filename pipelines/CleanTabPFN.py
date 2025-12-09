@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 from configs.TabPFNSettings import TabPFNSettings
@@ -63,4 +64,20 @@ if __name__ == "__main__":
                               balance_classes=False)
 
     pipeline = CleanTabPFN(model_settings=settings)
+    list_path = Path(__file__).resolve().parent / 'tabarena_list.txt'
+    max_rows = 1000
+
+    if not list_path.exists():
+        logger.error("Dataset list file not found: %s", list_path)
+    else:
+        with list_path.open() as fh:
+            for raw in fh:
+                dataset_name = raw.strip()
+                if not dataset_name or dataset_name.startswith("#"):
+                    continue
+                try:
+                    logger.info("Running pipeline for dataset=%s", dataset_name)
+                    pipeline.run(dataset_name=dataset_name, max_rows=max_rows)
+                except Exception:
+                    logger.exception("Pipeline failed for dataset=%s; continuing", dataset_name)
     pipeline.run(dataset_name="amazon_employee_access", max_rows=1000)
