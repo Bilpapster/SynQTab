@@ -64,7 +64,7 @@ if __name__ == "__main__":
                               balance_classes=False)
 
     pipeline = CleanTabPFN(model_settings=settings)
-    list_path = Path(__file__).resolve().parent / 'tabarena_list.txt'
+    list_path = Path(__file__).resolve().parent.parent / 'tabarena_list.txt'
     max_rows = 1000
 
     if not list_path.exists():
@@ -80,4 +80,3 @@ if __name__ == "__main__":
                     pipeline.run(dataset_name=dataset_name, max_rows=max_rows)
                 except Exception:
                     logger.exception("Pipeline failed for dataset=%s; continuing", dataset_name)
-    pipeline.run(dataset_name="amazon_employee_access", max_rows=1000)
