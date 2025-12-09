@@ -61,11 +61,12 @@ class CleanTabPFN(Pipeline):
 if __name__ == "__main__":
     settings = TabPFNSettings(n_sgld_steps=1000,
                               n_samples=1000,
-                              balance_classes=False)
+                              balance_classes=True,
+                              use_quantiles=True)
 
     pipeline = CleanTabPFN(model_settings=settings)
     list_path = Path(__file__).resolve().parent.parent / 'tabarena_list.txt'
-    max_rows = 1000
+    max_rows = None
 
     if not list_path.exists():
         logger.error("Dataset list file not found: %s", list_path)
