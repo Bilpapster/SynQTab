@@ -191,8 +191,12 @@ class Dataset:
         Returns:
             pd.DataFrame: The converted DataFrame.
         """
-        if not isinstance(table, tf.Tensor):
-            raise ValueError("Input must be a TensorFlow tensor.")
+        if isinstance(table, torch.Tensor):
+            array = table.cpu().detach().numpy()
+        elif isinstance(table, tf.Tensor):
+            array = table.numpy()
+        else:
+            raise ValueError("Input must be a PyTorch or TensorFlow tensor.")
 
         array = table.numpy()
         df = pd.DataFrame(array, columns=self.schema)
