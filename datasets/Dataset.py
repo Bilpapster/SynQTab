@@ -2,7 +2,6 @@ from pathlib import Path
 import tensorflow as tf
 import pandas as pd
 import torch
-import yaml
 from numpy import ndarray
 from utils.utils import read_table_from_db
 
@@ -24,7 +23,7 @@ class Dataset:
         target_feature (str): The name of the target column.
         categorical_features (list[str]): A list of names of categorical columns.
     """
-    def __init__(self, dataset_name, max_rows: int = None):
+    def __init__(self, dataset_name, db_schema = db_schema, max_rows: int = None):
         """
         Initializes the Dataset object.
 
@@ -35,6 +34,7 @@ class Dataset:
         """
         self.dataset_name = dataset_name
         self.max_rows = max_rows
+        self.db_schema = db_schema
 
         # Establish project root to construct absolute paths
         self.schema = None
@@ -69,7 +69,7 @@ class Dataset:
             FileNotFoundError: If the dataset CSV file does not exist.
         """
 
-        dataset = read_table_from_db(self.dataset_name, schema='tabarena')
+        dataset = read_table_from_db(self.dataset_name, schema=self.db_schema)
 
         if self.max_rows is not None and len(dataset) > self.max_rows:
             dataset = dataset.sample(n=self.max_rows, random_state=42).reset_index(drop=True)
@@ -84,7 +84,7 @@ class Dataset:
         import pandas as pd
         import yaml
 
-        df = read_table_from_db(f"{self.dataset_name}_meta", schema="tabarena")
+        df = read_table_from_db(f"{self.dataset_name}_meta", schema=self.db_schema)
 
         if df is None or len(df) == 0:
             return {"problem_type": None, "target_feature": None, "categorical_features": []}

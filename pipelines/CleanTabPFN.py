@@ -27,7 +27,7 @@ class CleanTabPFN(Pipeline):
         logger.info("Starting CleanTabPFN pipeline for dataset=%s max_rows=%s", dataset_name, max_rows)
 
         # Load dataset
-        data_config = Dataset(dataset_name, max_rows=max_rows)
+        data_config = Dataset(dataset_name, max_rows=max_rows, db_schema="tabarena_label_encoded")
         try:
             dataset = data_config.load_dataset()
         except Exception:
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     pipeline = CleanTabPFN(model_settings=settings)
     list_path = Path(__file__).resolve().parent.parent / 'tabarena_list.txt'
-    max_rows = None
+    max_rows = 50000
 
     if not list_path.exists():
         logger.error("Dataset list file not found: %s", list_path)

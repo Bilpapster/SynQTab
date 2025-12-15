@@ -6,7 +6,7 @@ from utils import write_dataframe_to_db
 
 # --- Configuration ---
 DATASETS_DIR = "../tabarena_datasets"
-DB_SCHEMA = "tabarena"
+DB_SCHEMA = "tabarena_label_encoded"
 # -------------------
 
 def process_and_load_datasets():
@@ -43,6 +43,9 @@ def process_and_load_datasets():
             categorical_features = metadata.get('categorical_features', [])
             if not categorical_features:
                 print(f"WARNING: No `categorical_features` found in yaml for `{name}`.")
+
+            if metadata.get('problem_type', None) == 'classification':
+                categorical_features.append(metadata.get('target_feature', ''))
 
             # 2. Read CSV data
             df = pd.read_csv(csv_path)
