@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import yaml
 from sklearn.preprocessing import LabelEncoder
-from utils import write_dataframe_to_db
+from db_utils import write_dataframe_to_db
 
 # --- Configuration ---
 DATASETS_DIR = "../tabarena_datasets"

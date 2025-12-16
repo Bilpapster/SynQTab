@@ -3,9 +3,9 @@ from typing import Optional, Dict, Any
 
 from configs import PollutionSettings, TabPFNSettings
 from datasets.Dataset import Dataset
-from generators import TabPFN
+from generators import TabEBM
 from pipelines.Pipeline import Pipeline
-from utils.utils import write_dataframe_to_db
+from utils.db_utils import write_dataframe_to_db
 from pollution.Polluter import Polluter
 
 logger = logging.getLogger(__name__)

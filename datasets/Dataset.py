@@ -1,9 +1,10 @@
+import json
 from pathlib import Path
 import tensorflow as tf
 import pandas as pd
 import torch
 from numpy import ndarray
-from utils.utils import read_table_from_db
+from utils.db_utils import read_table_from_db
 
 class Dataset:
     """
@@ -23,7 +24,7 @@ class Dataset:
         target_feature (str): The name of the target column.
         categorical_features (list[str]): A list of names of categorical columns.
     """
-    def __init__(self, dataset_name, db_schema:str = None, max_rows: int = None):
+    def __init__(self, dataset_name):
         """
         Initializes the Dataset object.
 
@@ -33,10 +34,8 @@ class Dataset:
                 to this number of rows. Defaults to None.
         """
         self.dataset_name = dataset_name
-        self.max_rows = max_rows
-        self.db_schema = db_schema
-
-        # Establish project root to construct absolute paths
+        self.max_rows = None
+        self.db_schema = None
         self.schema = None
 
         yaml_info = self._fetch_yaml()
@@ -58,23 +57,29 @@ class Dataset:
             "categorical_features": self.categorical_features
         }
 
-    def load_dataset(self) -> pd.DataFrame:
-        """
-        Fetches the original dataset from a local CSV file.
+    def fetch_prior_dataset(self, mode:str = "db", max_rows:int = None) -> pd.DataFrame:
+        if mode == "db":
+            dataset = read_table_from_db(self.dataset_name, schema="tabarena_label_encoded")
+            if max_rows is not None and len(dataset) > max_rows:
+                dataset = dataset.sample(n=max_rows, random_state=42).reset_index(drop=True)
 
-        Returns:
-            pd.DataFrame: The loaded DataFrame.
+            self.schema = dataset.columns
+            return dataset
+        elif mode == "local":
+            dataset = pd.read_csv(f"tabarena/{self.dataset_name}.csv")
+            if max_rows is not None and len(dataset) > max_rows:
+                dataset = dataset.sample(n=max_rows, random_state=42).reset_index(drop=True)
 
-        Raises:
-            FileNotFoundError: If the dataset CSV file does not exist.
-        """
+            self.schema = dataset.columns
+            return dataset
+        else:
+            return None
 
-        dataset = read_table_from_db(self.dataset_name, schema=self.db_schema)
+    def fetch_clean_synthetic_dataset(self, model:str = "tabpfn", max_rows: int = None) -> pd.DataFrame:
+        dataset = read_table_from_db(f"clean_{self.dataset_name}_{model}", schema=f"{model}_clean")
+        if max_rows is not None and len(dataset) > max_rows:
+            dataset = dataset.sample(n=max_rows, random_state=42).reset_index(drop=True)
 
-        if self.max_rows is not None and len(dataset) > self.max_rows:
-            dataset = dataset.sample(n=self.max_rows, random_state=42).reset_index(drop=True)
-
-        self.schema = dataset.columns
         return dataset
 
     def _fetch_yaml(self) -> dict:
@@ -84,7 +89,7 @@ class Dataset:
         import pandas as pd
         import yaml
 
-        df = read_table_from_db(f"{self.dataset_name}_meta", schema=self.db_schema)
+        df = read_table_from_db(f"{self.dataset_name}_meta", schema="tabarena_metadata")
 
         if df is None or len(df) == 0:
             return {"problem_type": None, "target_feature": None, "categorical_features": []}
@@ -202,20 +207,6 @@ class Dataset:
         df = pd.DataFrame(array, columns=self.schema)
         return df
 
-    def _limit_dataset_size(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Limits the dataset size to a maximum number of rows by random sampling.
-        This is useful when working with very large datasets and GPU is limited.
-        Args:
-            df (pd.DataFrame): The input DataFrame.
-
-        Returns:
-            pd.DataFrame: The DataFrame, down-sampled if it was larger than `self.max_rows`.
-        """
-        if len(df) > self.max_rows:
-            return df.sample(n=self.max_rows, random_state=42).reset_index(drop=True)
-        return df
-
     def get_categorical_indices(self) -> list[int]:
         """
         Returns the indices of categorical features in the dataset.
@@ -233,3 +224,38 @@ class Dataset:
             categorical_list.append(target_index)
 
         return categorical_list
+
+    def create_sdmetrics_metadata(self) -> dict:
+        """
+        Creates metadata for sdmetrics based on the dataset configuration.
+
+        Returns:
+            dict: A dictionary containing sdmetrics metadata.
+        """
+        metadata = {
+            "columns": {}
+        }
+
+        for col in self.schema:
+            if col == self.target_feature and self.problem_type == "classification":
+                metadata["columns"][col] = {"sdtype": "categorical"}
+            elif col in self.categorical_features:
+                metadata["columns"][col] = {"sdtype": "categorical"}
+            else:
+                metadata["columns"][col] = {"sdtype": "numerical"}
+
+        return metadata
+
+    def write_metadata_to_json(self, file_path: str) -> None:
+        """
+        Writes the sdmetrics metadata to a JSON file.
+
+        Args:
+            file_path (str): The path to the JSON file where metadata will be saved.
+        """
+        metadata = self.create_sdmetrics_metadata()
+        metadata_path = Path(f'metadata/{self.dataset_name}.json')
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f)

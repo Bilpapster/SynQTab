@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from configs.TabPFNSettings import TabPFNSettings
 from datasets.Dataset import Dataset
 from pipelines.Pipeline import Pipeline
-from utils.utils import write_dataframe_to_db, get_logger
+from utils.db_utils import write_dataframe_to_db, get_logger
 from generators.TabPFN import TabPFN
 logger = get_logger(__name__)
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     pipeline = CleanTabPFN(model_settings=settings)
     list_path = Path(__file__).resolve().parent.parent / 'tabarena_list.txt'
-    max_rows = 50000
+    max_rows = 1000
 
     if not list_path.exists():
         logger.error("Dataset list file not found: %s", list_path)

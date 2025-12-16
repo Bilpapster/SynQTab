@@ -2,7 +2,6 @@ apsfailure
 amazon_employee_access
 another_dataset_on_used_fiat_500
 bank_customer_churn
-bioresponse
 diabetes130us
 e_commereshippingdata
 fitness_club
@@ -13,7 +12,6 @@ is_this_a_good_customer
 mic
 marketing_campaign
 naticusdroid
-qsar_tid_11
 qsar_fish_toxicity
 sdss17
 airfoil_self_noise
@@ -31,7 +29,6 @@ diamonds
 hazelnut_spread_contaminant_detection
 healthcare_insurance_expenses
 heloc
-hiva_agnostic
 houses
 in_vehicle_coupon_recommendation
 jm1
