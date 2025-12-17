@@ -1,8 +1,23 @@
 from abc import ABC, abstractmethod
+from typing import Any, Dict
 import pandas as pd
 
-
 class Evaluator(ABC):
+    """
+    Abstract base class for all evaluators.
+    """
+
     @abstractmethod
-    def evaluate(self, data_1:pd.DataFrame, data_2:pd.DataFrame):
+    def evaluate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, metadata: Dict[str, Any] = None) -> Any:
+        """
+        Evaluates the quality of synthetic data against real data.
+
+        Args:
+            real_data (pd.DataFrame): The original real dataset.
+            synthetic_data (pd.DataFrame): The generated synthetic dataset.
+            metadata (Dict[str, Any], optional): Metadata describing the dataset structure (e.g., SDMetrics metadata).
+
+        Returns:
+            Any: The result of the evaluation.
+        """
         pass

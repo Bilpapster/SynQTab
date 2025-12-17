@@ -51,21 +51,21 @@ class StatisticalEvaluator(SDMetricsEvaluator):
 
         return quality_report
 
-    def write_pickle(self):
+    def write_pickle(self, dataset_name: str = None):
         """
         Writes the quality report to a pickle file for later visualization.
         """
         import os
         directory = "../experiments/sd_reports/"
         os.makedirs(directory, exist_ok=True)
-        self.sd_metrics_report.save(filepath=f"{directory}{self.experiment_name}_statistical_eval.pkl")
+        self.sd_metrics_report.save(filepath=f"{directory}{self.experiment_name}_{dataset_name}.pkl")
 
-    def write_json(self):
+    def write_json(self, dataset_name: str = None):
         """
         Writes the evaluation report to a JSON file.
         """
         import os
         directory = "../experiments/sd_jsons/"
         os.makedirs(directory, exist_ok=True)
-        with open(f"{directory}{self.experiment_name}_statistical_eval.json", 'w') as f:
+        with open(f"{directory}{self.experiment_name}_{dataset_name}.json", 'w') as f:
             json.dump(self.json_report, f, indent=4)

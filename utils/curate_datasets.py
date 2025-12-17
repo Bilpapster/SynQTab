@@ -69,11 +69,23 @@ def process_and_load_datasets():
                     # Convert to Unix timestamp (seconds) and fill NaNs with a placeholder like 0
                     df[timestamp_column] = (dt_series.astype('int64') // 10 ** 9).fillna(0).astype(int)
 
+            if name == 'QSAR-TID-11':
+                # Convert binary columns to integer, keep MEDIAN_PXC50 as float
+                for col in df.columns:
+                    if col != 'MEDIAN_PXC50':
+                        unique_values = df[col].dropna().unique()
+                        if set(unique_values).issubset({0.0, 1.0}):
+                            df[col] = df[col].astype('int8')
+
+                # Round MEDIAN_PXC50 to reduce precision
+                if 'MEDIAN_PXC50' in df.columns:
+                    df['MEDIAN_PXC50'] = df['MEDIAN_PXC50'].round(6)
+
             # 4. Write processed DataFrame to DB
             # Sanitize table name for SQL
             table_name = name.replace('-', '_').replace(' ', '_').lower()
             print(f"Writing data to table `{DB_SCHEMA}.{table_name}`...")
-            write_dataframe_to_db(df, table_name=table_name, schema=DB_SCHEMA)
+            write_dataframe_to_db(df, table_name=table_name, schema=DB_SCHEMA, row_by_row=True)
 
             # 5. Write YAML metadata to a separate DB table
             meta_df = pd.DataFrame(list(metadata.items()), columns=['meta_key', 'meta_value'])
