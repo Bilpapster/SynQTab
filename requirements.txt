@@ -1,4 +1,3 @@
 psycopg2-binary
-tabpfn
-tabpfn-extensions[all]
 protobuf<4
+synthcity
