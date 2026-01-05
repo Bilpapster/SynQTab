@@ -1,6 +1,10 @@
 ######### PROJECT-SPECIFIC IGNORES #########
 tabarena_datasets/
 
+postgres/data/
+minio/data/
+.env
+
 # auto-generated when synthcity runs
 **/workspace/
 
