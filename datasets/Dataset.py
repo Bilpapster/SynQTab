@@ -5,6 +5,8 @@ import pandas as pd
 import torch
 from numpy import ndarray
 from utils.db_utils import read_table_from_db
+from utils.minio_utils import read_parquet_from_bucket, MinioBucket, MinioFolder, read_yaml_from_bucket
+
 
 class Dataset:
     """
@@ -24,7 +26,7 @@ class Dataset:
         target_feature (str): The name of the target column.
         categorical_features (list[str]): A list of names of categorical columns.
     """
-    def __init__(self, dataset_name):
+    def __init__(self, dataset_name, mode):
         """
         Initializes the Dataset object.
 
@@ -37,6 +39,7 @@ class Dataset:
         self.max_rows = None
         self.db_schema = None
         self.schema = None
+        self.mode = mode
 
         yaml_info = self._fetch_yaml()
         self.problem_type = yaml_info["problem_type"]
@@ -57,23 +60,31 @@ class Dataset:
             "categorical_features": self.categorical_features
         }
 
-    def fetch_prior_dataset(self, mode:str = "db", max_rows:int = None) -> pd.DataFrame:
-        if mode == "db":
+    def fetch_prior_dataset(self, max_rows:int = None) -> pd.DataFrame:
+        if self.mode == "db":
             dataset = read_table_from_db(self.dataset_name, schema="tabarena_label_encoded")
             if max_rows is not None and len(dataset) > max_rows:
                 dataset = dataset.sample(n=max_rows, random_state=42).reset_index(drop=True)
 
             self.schema = dataset.columns
             return dataset
-        elif mode == "local":
+        elif self.mode == "local":
             dataset = pd.read_csv(f"tabarena/{self.dataset_name}.csv")
             if max_rows is not None and len(dataset) > max_rows:
                 dataset = dataset.sample(n=max_rows, random_state=42).reset_index(drop=True)
 
             self.schema = dataset.columns
             return dataset
-        else:
-            return None
+        elif self.mode == "minio":
+            dataset = read_parquet_from_bucket(
+                MinioBucket.REAL,
+                f"{MinioFolder.PERFECT.value}/{MinioFolder.DATA.value}/{self.dataset_name}.parquet"
+            )
+            if max_rows is not None and len(dataset) > max_rows:
+                dataset = dataset.sample(n=max_rows, random_state=42).reset_index(drop=True)
+
+            self.schema = dataset.columns
+            return dataset
 
     def fetch_clean_synthetic_dataset(self, model:str = "tabpfn", max_rows: int = None) -> pd.DataFrame:
         dataset = read_table_from_db(f"clean_{self.dataset_name}_{model}", schema=f"{model}_clean")
@@ -88,17 +99,7 @@ class Dataset:
         """
         import pandas as pd
         import yaml
-
-        df = read_table_from_db(f"{self.dataset_name}_meta", schema="tabarena_metadata")
-
-        if df is None or len(df) == 0:
-            return {"problem_type": None, "target_feature": None, "categorical_features": []}
-
-        # Convert the two-column table (meta_key, meta_value) → dictionary
-        row = dict(zip(df["meta_key"], df["meta_value"]))
-
         # ------------------ Parsing Helpers ------------------
-
         def _parse_raw(val):
             if val is None or (isinstance(val, float) and pd.isna(val)):
                 return None
@@ -129,13 +130,30 @@ class Dataset:
                 return [v]
             return [v]
 
-        # ------------------ Final Output ------------------
+        if self.mode == "db":
+            df = read_table_from_db(f"{self.dataset_name}_meta", schema="tabarena_metadata")
 
-        return {
-            "problem_type": _as_string(row.get("problem_type")),
-            "target_feature": _as_string(row.get("target_feature")),
-            "categorical_features": _as_list(row.get("categorical_features")),
-        }
+            if df is None or len(df) == 0:
+                return {"problem_type": None, "target_feature": None, "categorical_features": []}
+
+            # Convert the two-column table (meta_key, meta_value) → dictionary
+            row = dict(zip(df["meta_key"], df["meta_value"]))
+        elif self.mode == "minio":
+            row = read_yaml_from_bucket(
+                bucket_name=MinioBucket.REAL.value,
+                object_name=f"{MinioFolder.PERFECT.value}/{MinioFolder.METADATA.value}/{self.dataset_name}.yaml"
+            )
+
+            if row is None or len(row) == 0:
+                return {"problem_type": None, "target_feature": None, "categorical_features": []}
+
+
+            return {
+                "problem_type": _as_string(row.get("problem_type")),
+                "target_feature": _as_string(row.get("target_feature")),
+                "categorical_features": _as_list(row.get("categorical_features")),
+            }
+
 
     def split_x_y(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
         """

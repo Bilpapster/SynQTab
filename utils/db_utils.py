@@ -7,8 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 import pandas as pd
 
-from logging_utils import get_logger
-from file_utils import read_yaml_file
+from utils.logging_utils import get_logger
 
 LOG = get_logger(__file__)
 

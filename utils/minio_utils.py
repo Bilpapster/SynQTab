@@ -1,13 +1,17 @@
+import io
+import json
 from enum import Enum
 import os
 from typing import Optional, List, Dict, Any
 
 import boto3
+import pandas as pd
+import yaml
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError, NoCredentialsError
 from dotenv import load_dotenv
 
-from logging_utils import get_logger
+from utils.logging_utils import get_logger
 
 LOG = get_logger(__file__)
 
@@ -15,6 +19,7 @@ LOG = get_logger(__file__)
 class MinioBucket(Enum):
     REAL = 'real'
     SYNTHETIC = 'synthetic'
+    EVALUATION = 'evaluation'
     
 class MinioFolder(Enum):
     PERFECT = 'perfect'
@@ -168,4 +173,103 @@ def download_file_from_bucket(
         LOG.info(f"Downloaded '{bucket_name}/{object_name}' to '{local_file_path}'.")
     except ClientError:
         LOG.exception(f"Failed to download object '{object_name}' from bucket '{bucket_name}'.")
+        raise
+
+def read_parquet_from_bucket(
+        bucket_name: str | MinioBucket,
+        object_name: str,
+        client: Optional[BaseClient] = None,
+        **pandas_kwargs
+) -> pd.DataFrame:
+    """
+    Read a Parquet file from MinIO bucket directly into a pandas DataFrame.
+
+    - `bucket_name`: Name of the bucket (string) or MinioBucket enum.
+    - `object_name`: Name of the object/file in the bucket.
+    - `pandas_kwargs`: Additional keyword arguments to pass to pd.read_parquet().
+    """
+    if client is None:
+        client = get_minio_client()
+
+    # Convert MinioBucket enum to string if needed
+    bucket_str = bucket_name.value if isinstance(bucket_name, MinioBucket) else bucket_name
+
+    try:
+        response = client.get_object(Bucket=bucket_str, Key=object_name)
+        df = pd.read_parquet(io.BytesIO(response['Body'].read()), **pandas_kwargs)
+        LOG.info(f"Loaded Parquet from '{bucket_str}/{object_name}' into DataFrame with shape {df.shape}.")
+        return df
+    except ClientError:
+        LOG.exception(f"Failed to read Parquet from bucket '{bucket_str}'.")
+        raise
+
+def read_yaml_from_bucket(
+        bucket_name: str,
+        object_name: str,
+        client: Optional[BaseClient] = None,
+        **yaml_kwargs
+) -> Dict[str, Any]:
+    """
+    Read a YAML file from MinIO bucket directly into a dictionary.
+
+    - `bucket_name`: Name of the bucket.
+    - `object_name`: Name of the object/file in the bucket.
+    - `yaml_kwargs`: Additional keyword arguments to pass to yaml.safe_load().
+    """
+    if client is None:
+        client = get_minio_client()
+
+    try:
+        response = client.get_object(Bucket=bucket_name, Key=object_name)
+        content = response['Body'].read().decode('utf-8')
+        data = yaml.safe_load(content, **yaml_kwargs)
+        LOG.info(f"Loaded YAML from '{bucket_name}/{object_name}'.")
+        return data
+    except ClientError:
+        LOG.exception(f"Failed to read YAML from bucket '{bucket_name}'.")
+        raise
+
+def upload_json_to_bucket(
+        data: Dict[str, Any],
+        bucket_name: str | MinioBucket,
+        folder: str | MinioFolder,
+        file_name: str,
+        client: Optional[BaseClient] = None,
+) -> None:
+    """
+    Upload JSON data to a MinIO bucket in a specific folder.
+    Creates the bucket if it doesn't exist. Folders are created implicitly by the object key.
+
+    - `data`: Dictionary to serialize as JSON.
+    - `bucket_name`: Name of the bucket (string) or MinioBucket enum.
+    - `folder`: Folder path within the bucket (string) or MinioFolder enum.
+    - `file_name`: Name of the JSON file.
+    """
+    if client is None:
+        client = get_minio_client()
+
+    # Convert enums to strings if needed
+    bucket_str = bucket_name.value if isinstance(bucket_name, MinioBucket) else bucket_name
+    folder_str = folder.value if isinstance(folder, MinioFolder) else folder
+
+    # Ensure bucket exists
+    ensure_bucket_exists(bucket_str, client)
+
+    # Construct the object key (folder/file_name)
+    object_key = f"{folder_str}/{file_name}" if folder_str else file_name
+
+    try:
+        # Serialize data to JSON bytes
+        json_bytes = json.dumps(data, indent=2).encode('utf-8')
+
+        # Upload using put_object
+        client.put_object(
+            Bucket=bucket_str,
+            Key=object_key,
+            Body=json_bytes,
+            ContentType='application/json'
+        )
+        LOG.info(f"Uploaded JSON to '{bucket_str}/{object_key}'.")
+    except ClientError:
+        LOG.exception(f"Failed to upload JSON to '{bucket_str}/{object_key}'.")
         raise

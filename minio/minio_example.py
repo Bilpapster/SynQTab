@@ -1,6 +1,9 @@
 import os
 import boto3
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+from dotenv import load_dotenv
+
+load_dotenv()
 
 MINIO_ROOT_USER = os.getenv('MINIO_ROOT_USER')
 MINIO_ROOT_PASSWORD = os.getenv('MINIO_ROOT_PASSWORD')
@@ -13,7 +16,7 @@ s3 = boto3.client(
     "s3",
     aws_access_key_id=MINIO_ROOT_USER,
     aws_secret_access_key=MINIO_ROOT_PASSWORD,
-    endpoint_url=f"{MINIO_HOST}:{MINIO_API_MAPPED_PORT}",
+    endpoint_url=f"http://{MINIO_HOST}:{MINIO_API_MAPPED_PORT}",
 )
 
 def create_bucket(bucket_name):
