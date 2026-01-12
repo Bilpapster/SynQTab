@@ -2,13 +2,13 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict
 import pandas as pd
 
-class Evaluator(ABC):
+class SingleEvaluator(ABC):
     """
     Abstract base class for all evaluators.
     """
 
     @abstractmethod
-    def evaluate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, metadata: Dict[str, Any] = None) -> Any:
+    def evaluate(self, data: pd.DataFrame) -> Any:
         """
         Evaluates the quality of synthetic data against real data.
 
