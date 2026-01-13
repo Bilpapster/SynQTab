@@ -1,22 +1,24 @@
-import json
+from typing import override, Any, Dict
+
 from sdmetrics.reports.single_table import QualityReport
 import pandas as pd
-from evaluators.SDMetricsEvaluator import SDMetricsEvaluator
+
+from datasets import Dataset
+from evaluators.DualEvaluator import DualEvaluator
 
 
-class StatisticalEvaluator(SDMetricsEvaluator):
+class QualityEvaluator(DualEvaluator):
     """
     Evaluator that uses SDMetrics QualityReport to assess the statistical
     quality of data_2 compared to data_1. data_1 can be the real data or the synthetic created from clean data
     and data_2 is the synthetic data or the data created from the polluted data.
     """
 
-    def __init__(self, experiment_name: str = "Statistical Evaluation"):
-        self.sd_metrics_report = None
-        self.json_report = None
-        self.experiment_name = experiment_name
+    def __init__(self, notes: bool = False):
+        self.notes = notes
 
-    def evaluate(self, data_1: pd.DataFrame, data_2: pd.DataFrame, metadata:dict) -> dict:
+    @override
+    def evaluate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, metadata: Dict[str, Any], holdout_table:pd.DataFrame = None) -> Any:
         """
         Evaluates the synthetic data using the SDMetrics QualityReport.
         This generates an aggregate score and detailed property scores for
@@ -29,11 +31,11 @@ class StatisticalEvaluator(SDMetricsEvaluator):
             quality_report = QualityReport()
 
             # Generate the report
-            quality_report.generate(data_1, data_2, metadata=metadata, verbose=False)
-            self.sd_metrics_report = quality_report
+            quality_report.generate(real_data, synthetic_data, metadata=metadata, verbose=False)
+            sd_metrics_report = quality_report
 
-            # Get the overall quality score
-            report['Overall_Quality_Score'] = quality_report.get_score()
+            if self.notes is False:
+                return {'quality_score': quality_report.get_score()}
 
             # Get detailed property scores (Column Shapes, Column Pair Trends)
             properties = quality_report.get_properties()
@@ -46,26 +48,24 @@ class StatisticalEvaluator(SDMetricsEvaluator):
                 details = quality_report.get_details(property_name=prop_name)
                 report[f'{clean_prop_name}_Details'] = details.to_dict(orient='records')
 
+            return {
+                'quality_score': quality_report.get_score(),
+                'notes': report
+            }
+
         except Exception as e:
             report['QualityReport_error'] = str(e)
 
-        return quality_report
+            return {'quality_score': 0.0, 'notes': report}
 
-    def write_pickle(self, dataset_name: str = None):
-        """
-        Writes the quality report to a pickle file for later visualization.
-        """
-        import os
-        directory = "../experiments/sd_reports/"
-        os.makedirs(directory, exist_ok=True)
-        self.sd_metrics_report.save(filepath=f"{directory}{self.experiment_name}_{dataset_name}.pkl")
+if __name__ == "__main__":
+    # Example usage
+    prior_config = Dataset(dataset_name="blood-transfusion-service-center",
+                           mode="minio")
 
-    def write_json(self, dataset_name: str = None):
-        """
-        Writes the evaluation report to a JSON file.
-        """
-        import os
-        directory = "../experiments/sd_jsons/"
-        os.makedirs(directory, exist_ok=True)
-        with open(f"{directory}{self.experiment_name}_{dataset_name}.json", 'w') as f:
-            json.dump(self.json_report, f, indent=4)
+    prior = prior_config.fetch_prior_dataset()
+    sd_metadata = prior_config.create_sdmetrics_metadata()
+
+    evaluator = QualityEvaluator(notes=True)
+    results = evaluator.evaluate(prior, prior, metadata=sd_metadata)
+    print(results)

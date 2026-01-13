@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 
+from datasets import Dataset
 from evaluators.SingleEvaluator import SingleEvaluator
 
 
@@ -37,3 +38,14 @@ class IsolationForestEvaluator(SingleEvaluator):
                 }
             }
             return result
+
+if __name__ == "__main__":
+    # Example usage
+    prior_config = Dataset(dataset_name="blood-transfusion-service-center",
+                           mode="minio")
+
+    prior = prior_config.fetch_prior_dataset()
+
+    evaluator = IsolationForestEvaluator(notes=True)
+    results = evaluator.evaluate(prior)
+    print(results)

@@ -1,12 +1,14 @@
 import os
 import pandas as pd
 import desbordante as db
+
+from datasets import Dataset
 from evaluators.SingleEvaluator import SingleEvaluator
 from utils.db_utils import get_logger
 
 logger = get_logger(__name__)
 
-class FunctionalDependencies(SingleEvaluator):
+class DesbordanteFDs(SingleEvaluator):
     def __init__(self, notes: bool = False):
         self.notes = notes
 
@@ -43,3 +45,14 @@ class FunctionalDependencies(SingleEvaluator):
             # Remove log file if it exists
             if os.path.exists('myeasylog.log'):
                 os.remove('myeasylog.log')
+
+if __name__ == "__main__":
+    # Example usage
+    prior_config = Dataset(dataset_name="blood-transfusion-service-center",
+                           mode="minio")
+
+    prior = prior_config.fetch_prior_dataset()
+
+    evaluator = DesbordanteFDs(notes=True)
+    results = evaluator.evaluate(prior)
+    print(results)

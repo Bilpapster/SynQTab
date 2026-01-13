@@ -1,5 +1,5 @@
 import os
-from evaluators.StatisticalEvaluator import StatisticalEvaluator
+from evaluators.QualityEvaluator import StatisticalEvaluator
 from pipelines.Pipeline import Pipeline
 from datasets.Dataset import Dataset
 
