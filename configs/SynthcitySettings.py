@@ -13,12 +13,16 @@ class SynthcityModelOption(Enum):
     DDPM = 'ddpm'
     ARF = 'arf'
     MARGINAL_DISTRIBUTIONS = 'marginal_distributions'
+    BAYESIAN_NETWORK = 'bayesian_network'
+    GREAT = 'great'
     
     # privacy-focused
     ADSGAN = 'adsgan'
     PATEGAN = 'pategan'
     AIM = 'aim'
     DPGAN = 'dpgan'
+    DECAF = 'decaf'
+    PRIVBAYES = 'privbayes'
 
 class SynthcitySettings:
     def __init__(
