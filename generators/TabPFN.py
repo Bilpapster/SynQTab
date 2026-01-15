@@ -1,6 +1,7 @@
 from tabpfn_extensions import TabPFNClassifier, TabPFNRegressor, TabPFNUnsupervisedModel
 from configs import TabPFNSettings
 from generators.Generator import Generator
+import pandas as pd
 import torch
 
 class TabPFN(Generator):
@@ -12,28 +13,19 @@ class TabPFN(Generator):
         self.settings = settings.to_dict()
         self.generator = None
 
-    def generate(self, initial_df, categorical_features: list = None) -> torch.Tensor:
-        """
-        Generate synthetic data using TabPFN Unsupervised Model.
-        :param initial_df: The initial dataframe to base synthetic data generation on.
-        :param categorical_features: the list of indices for categorical features.
-        :return:
-        """
-        tabpfn_clf = TabPFNClassifier(categorical_features_indices = categorical_features) # Model to handle categorical features
-        tabpfn_reg = TabPFNRegressor(categorical_features_indices = categorical_features)  # Model to handle numerical features
-        model = TabPFNUnsupervisedModel(tabpfn_clf, tabpfn_reg) # Unsupervised model for synthetic data generation
-
-        # Manually set categorical features, don't let it infer
-        if categorical_features is not None:
-            model.set_categorical_features(categorical_features) # This does not work
-
-        model.fit(initial_df)
-
-        # Generate synthetic data using
-        synthetic_X = model.generate_synthetic_data(
-            self.settings["n_samples"],
-            self.settings["temperature"],
-            self.settings["n_permutations"]
+    def generate(self, X_initial, y_initial, task):
+        # TODO extract categorical extraction to another generic utility class
+        # TODO revise the generators to also get the random seed and pass it to classifier and regressor
+        classifier = TabPFNClassifier()
+        regressor = TabPFNRegressor()
+        self.generator = TabPFNUnsupervisedModel(classifier, regressor)
+        df = pd.concat([X_initial, y_initial], axis=1)
+        df_tensor = torch.tensor(pd.get_dummies(df), dtype=torch.float32)
+        self.generator.fit(df_tensor)
+        synthetic_data = self.generator.generate_synthetic_data(
+            n_samples=self.settings['n_samples'],
+            t=self.settings.get('temperature', 1),
+            n_permutations=self.settings.get('n_permutations', 3)
         )
-
-        return synthetic_X
+        # TODO see how we can restore the one hot encoding for the quality evaluation (column-wise will not work otherwise)
+        return pd.DataFrame(synthetic_data.detach().numpy())
