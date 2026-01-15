@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any
 
 from configs.TabPFNSettings import TabPFNSettings
 from datasets.Dataset import Dataset
-from pipelines.Pipeline import Pipeline
+from experiments.Pipeline import Pipeline
 from utils.db_utils import write_dataframe_to_db, get_logger
 from generators.TabPFN import TabPFN
 logger = get_logger(__name__)

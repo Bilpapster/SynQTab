@@ -1,7 +1,5 @@
 from pathlib import Path
 from datasets.Dataset import Dataset
-
-from evaluators.DesbordanteFDs import FunctionalDependencies
 from evaluators.HyFD import HyFD
 from utils.db_utils import get_logger
 from utils.minio_utils import upload_json_to_bucket, MinioBucket, MinioFolder
@@ -15,7 +13,7 @@ class FDDiscovery:
     def evaluate(self, dataset_name: str) -> dict:
         data_config = Dataset(dataset_name, mode="minio")
         try:
-            dataset = data_config.fetch_prior_dataset()
+            dataset = data_config.fetch_prior_dataset(max_rows=100)
         except Exception:
             logger.exception("Failed to load dataset=%s", dataset_name)
             raise
