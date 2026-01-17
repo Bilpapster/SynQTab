@@ -1,18 +1,22 @@
 # JAR Files Directory
 
-You can download the JARs using the provided script:
+**TL; DR**: The JAR files are automatically downloaded when running the `<root_dir>/scripts/prepare-execution-environment.sh` script.
+No further action is required on your side.
+
+In case you wish to separately download the JARs, feel free to use the provided script:
 ```bash
 # from the root directory of the project
-cd scripts/ && bash download_jars.sh
+bash scripts/download_jars.sh
+# the files can then be found in `<root_dir>/synqtab/jars/`, i.e., the directory that this README lives.
 ```
 
-## Required Files
+## JAR Details
 
 - `HyFD.jar` - The HyFD functional dependency discovery algorithm
-  - Download from: https://hpi.de/naumann/projects/data-profiling-and-analytics/metanome-data-profiling/algorithms.html
+  - Sourced from https://hpi.de/naumann/projects/data-profiling-and-analytics/metanome-data-profiling/algorithms.html 
   
 - `metanome-cli.jar` - Metanome command-line interface required to run HyFD
-  - Download from: https://github.com/sekruse/metanome-cli/releases/tag/v1.1.0
+  - Sourced from https://github.com/sekruse/metanome-cli/releases/tag/v1.1.0
 
-These JAR files are necessary for the functional dependency discovery functionality in the project.
-
+Our project depends on the aforementioned JAR files to perform functional dependency discovery (FDD). We use FDD as a
+metric to evaluate the quality of the synthetically generated tabular data. More information can be found in our paper.

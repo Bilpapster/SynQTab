@@ -10,6 +10,9 @@
 readonly SYNTHCITY_COMMIT_SHA='23f322fe381326ed01c41b13d469a06e38cce545'
 readonly SYNTHCITY_TEMP_DIRECTORY='synthcity-base-temp'
 
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")" # resolves to <your-path-to-the-repo>/SynQTab/scripts/
+PROJECT_ROOT_DIR="$(dirname "$SCRIPT_DIR")"   # resolves to <your-path-to-the-repo>/SynQTab/ which is the root of the project
+
 echo "STEP 1 of 5: Cloning the base synthcity repository."
 git clone https://github.com/vanderschaarlab/synthcity.git ${SYNTHCITY_TEMP_DIRECTORY} &> /dev/null \
     && echo -e "└❯ ✅ Successfully cloned the synthcity repo!\n" || echo -e "└❯ ❌ ERROR: Cloning synthcity failed!\n"
@@ -22,9 +25,9 @@ git checkout ${SYNTHCITY_COMMIT_SHA} &> /dev/null \
 
 
 echo "STEP 3 of 5: Revamping synthcity"
-git apply ../synthcity-patches/synthcity-351.patch &> /dev/null \
+git apply $SCRIPT_DIR/synthcity-patches/synthcity-351.patch &> /dev/null \
     && echo -e "└❯ ✅ Successfully applied PR 351 (Bugfix on PrivBayes)!" || echo -e "└❯ ❌ ERROR: Applying PR 351 has failed!"
-git apply ../synthcity-patches/synthcity-353.patch &> /dev/null \
+git apply $SCRIPT_DIR/synthcity-patches/synthcity-353.patch &> /dev/null \
     && echo -e "└❯ ✅ Successfully applied PR 353 (Enable Pytorch 2.3+)!\n" || echo -e "└❯ ❌ ERROR: Applying PR 353 has failed!\n"
 
 
@@ -39,6 +42,6 @@ cd ../ && rm -rf ${SYNTHCITY_TEMP_DIRECTORY} \
     && echo -e "└❯ ✅ Successfully cleaned up the temporary directory!\n" || echo -e "└❯ ❌ ERROR: Cleaning up the temporary directory has failed!\n"
 
 
-echo "========= INFO =========\n"
+echo "========= INFO ========="
 echo "Installed synthcity:" $(uv pip show synthcity | grep -i version)
 echo "Installed toch:" $(uv pip show torch | grep -i version)

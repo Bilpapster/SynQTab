@@ -1,6 +1,6 @@
 psycopg2-binary
 protobuf<4
-synthcity
+# synthcity # removed because we are using the revamped version. See scripts/synthcity-patches/README.md
 boto3
 python-dotenv==1.0.1
 ipython==9.9.0

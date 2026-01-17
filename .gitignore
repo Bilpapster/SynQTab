@@ -4,6 +4,7 @@ tabarena_datasets/
 postgres/data/
 minio/data/
 .env
+**/jars/*.jar
 
 # auto-generated when synthcity runs
 **/workspace/

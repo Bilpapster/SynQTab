@@ -1,10 +1,15 @@
+**TL; DR**: These patches are automatically applied when running the `<root_dir>/scripts/prepare-execution-environment.sh` script.
+No further action is required on your side. We document here more information about these patches for clarity and
+transparency on our setup process.
+
+### Introduction.
 This directory contains git patch files downloaded from GitHub and, in particular, from Pull Requests to the
-`synthcity` repository: https://github.com/vanderschaarlab/synthcity/tree/main
+`synthcity` repository: https://github.com/vanderschaarlab/synthcity/tree/main.
 
 ### What are these patch files?
 First of all, a git patch file is a text file that represents changes between two sets of files or commits.
 Read more here: https://graphite.com/guides/git-apply-patch. The patch files in this directory correspond to
-the following Pull Requests, both of which are raised by community members using the `synthcity` package:
+the following Pull Requests, both of which are raised by community members of the `synthcity` package:
 - https://github.com/vanderschaarlab/synthcity/pull/351; and
 - https://github.com/vanderschaarlab/synthcity/pull/353.
 

@@ -2,7 +2,9 @@
 
 # The script requires the wget command-line utility.
 
-readonly JARS_TARGET_DIRECTORY='../jars'
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")" # resolves to <your-path-to-the-repo>/SynQTab/scripts/
+PROJECT_ROOT_DIR="$(dirname "$SCRIPT_DIR")"   # resolves to <your-path-to-the-repo>/SynQTab/ which is the root of the project
+readonly JARS_TARGET_DIRECTORY=$PROJECT_ROOT_DIR/synqtab/jars
 
 readonly HYFD_DOWNLOAD_LINK='https://hpi.de/oldsite/fileadmin/user_upload/fachgebiete/naumann/projekte/repeatability/DataProfiling/Metanome_Algorithms/HyFD-1.2-SNAPSHOT.jar'
 readonly HYFD_JAR_FILE_NAME='HyFD.jar'
