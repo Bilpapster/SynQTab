@@ -2,9 +2,14 @@ import os
 import tempfile
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from synqtab.utils.minio_utils import get_minio_client, ensure_bucket_exists, upload_file_to_bucket, MinioBucket, MinioFolder
+
+from synqtab.data.clients.MinioClient import MinioClient
+from synqtab.data.clients.PostgresClient import PostgresClient
 from synqtab.utils.logging_utils import get_logger
-from synqtab.utils.file_utils import read_yaml_file, read_files_from_directory
+from synqtab.configs.MinioSettings import MinioBucket, MinioFolder
+
+# from synqtab.utils.minio_utils import get_minio_client, ensure_bucket_exists, upload_file_to_bucket, MinioBucket, MinioFolder
+from synqtab.utils.file_utils import read_files_from_directory, read_yaml_file
 
 # --- Configuration ---
 DATASETS_DIR = "../tabarena_datasets"
@@ -35,6 +40,9 @@ def _curate_qsar_tid_11(qsar_tid_11_df: pd.DataFrame) -> pd.DataFrame:
         unique_values = qsar_tid_11_df[col].dropna().unique()
         if set(unique_values).issubset({0.0, 1.0}):
             qsar_tid_11_df[col] = qsar_tid_11_df[col].astype('int8')
+    
+    return qsar_tid_11_df
+            
 
 DATASET_NAME_TO_CURATION_FUNCTION = {
     'Marketing_Campaign': _curate_marketing_campaign,
@@ -43,8 +51,8 @@ DATASET_NAME_TO_CURATION_FUNCTION = {
 DATASETS_REQUIRING_SPECIAL_CURATION = DATASET_NAME_TO_CURATION_FUNCTION.keys()
 
 
-def _load_dataset_to_postgres(name: str, df: pd.DataFrame, yaml_path: str) -> None:
-    metadata = read_yaml_file(yaml_path)
+def _load_dataset_to_postgres(name: str, df: pd.DataFrame, yaml_content: dict) -> None:
+    metadata = yaml_content
     
     # 1. Write processed DataFrame to DB
     # Sanitize table name for SQL
@@ -58,64 +66,61 @@ def _load_dataset_to_postgres(name: str, df: pd.DataFrame, yaml_path: str) -> No
     meta_df['meta_value'] = meta_df['meta_value'].apply(str)
     meta_table_name = f"{table_name}_meta"
     LOG.info(f"Writing metadata to table `{DB_SCHEMA}.{meta_table_name}`...")
-    # write_dataframe_to_db(meta_df, table_name=meta_table_name, schema=DB_SCHEMA)
+    PostgresClient.write_dataframe_to_db(meta_df, table_name=meta_table_name, schema=DB_SCHEMA)
     
     
-def _load_dataset_to_minio(name: str, df: pd.DataFrame, yaml_path: str) -> None:
+def _load_dataset_to_minio(name: str, df: pd.DataFrame, yaml_content: dict) -> None:
     """
     Serializes a DataFrame to a temporary Parquet file and uploads it to MinIO.
     Also, uploads the raw YAML metadata file as-is.
     """
-    return
-    # Initialize client once to reuse connection
-    client = get_minio_client()
+    import yaml
     
     # 0. Ensure target buckets exist
-    # access .value to get the string representation of the bucket name
-    bucket = MinioBucket.REAL.value
-    data_folder = f"{MinioFolder.PERFECT.value}/{MinioFolder.DATA.value}"
-    metadata_folder = f"{MinioFolder.PERFECT.value}/{MinioFolder.METADATA.value}"
+    bucket = MinioBucket.REAL.value    
+    data_folder = MinioFolder.create_path(MinioFolder.PERFECT, MinioFolder.DATA)
+    metadata_folder = MinioFolder.create_path(MinioFolder.PERFECT, MinioFolder.METADATA)
+    MinioClient.ensure_bucket_exists(bucket)
 
-    ensure_bucket_exists(bucket, client=client)
-
-    # 1. Write DataFrame to MinIO as Parquet
-    # We use a temporary file to save the Parquet, upload it, then delete it.
-    LOG.info("Trying to get a temporary file name")
+    # 1. Write the DataFrame and YAML file to MinIO as Parquet and YAML respectively
+    # We use a temporary file to save each, upload it, and then delete it.
+    LOG.info("Trying to get temporary file names")
     with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
         df.to_parquet(tmp.name, index=False)
-        tmp_path = tmp.name
+        tmp_path_data = tmp.name
+        
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+        with open(tmp.name, 'w') as file:
+            yaml.dump(yaml_content, file)
+        tmp_path_metadata = tmp.name
     
-    LOG.info("Found a temporary file name.")
+    LOG.info("Found temporary file names for the data and metadata.")
 
     try:
         data_object_key = f"{data_folder}/{name}.parquet"
-        
         LOG.info(f"Uploading data to MinIO: {bucket}/{data_object_key}")
-        upload_file_to_bucket(
-            local_file_path=tmp_path, 
+        MinioClient.upload_file_to_bucket(
+            local_file_path=tmp_path_data, 
             bucket_name=bucket, 
-            object_name=data_object_key, 
-            client=client
+            object_name=data_object_key,
         )
-        LOG.info(f"Uploading data to MinIO: {bucket}/{data_object_key}")
+        
+        meta_object_key = f"{metadata_folder}/{name}.yaml"
+        LOG.info(f"Uploading metadata to MinIO: {bucket}/{meta_object_key}")
+        MinioClient.upload_file_to_bucket(
+            local_file_path=tmp_path_metadata,
+            bucket_name=bucket,
+            object_name=meta_object_key,
+        )
     finally:
-        # Clean up the local temporary Parquet file
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-
-    # 2. Write Metadata YAML to MinIO
-    # We upload the source YAML file directly to the metadata bucket
-    # We ensure the object matches the dataset name for easy correlation
-    meta_object_key = f"{metadata_folder}/{name}.yaml"
+        # Clean up the local temporary files
+        if os.path.exists(tmp_path_data):
+            os.remove(tmp_path_data)
+        if os.path.exists(tmp_path_metadata):
+            os.remove(tmp_path_metadata)
     
-    LOG.info(f"Uploading metadata to MinIO: {bucket}/{meta_object_key}")
-    upload_file_to_bucket(
-        local_file_path=yaml_path,
-        bucket_name=bucket, 
-        object_name=meta_object_key, 
-        client=client
-    )
     LOG.info(f"Upload of data and metadata completed for dataset: {name}")
+
 
 TARGET_TO_LOAD_FUNCTION = {
     'db': _load_dataset_to_postgres,
@@ -140,22 +145,30 @@ def process_dataset(name: str, csv_path: str, yaml_path: str) -> pd.DataFrame:
 
     # 2. Read CSV data
     df = pd.read_csv(csv_path)
+    initial_rows, initial_columns = df.shape
 
-    # 3. Label Encode categorical features
-    if categorical_features:
-        le = LabelEncoder()
-        for col in categorical_features:
-            if col in df.columns:
-                # Ensure column is of string type before encoding to handle mixed types
-                df[col] = le.fit_transform(df[col].astype(str))
-            else:
-                LOG.error(f"Column `{col}` from yaml not found in csv for dataset: {name}")
-      
-    # 4. If needed, perform dataset-specific, additional curation steps          
+    # 3. If needed, perform dataset-specific, additional curation steps          
     if name in DATASETS_REQUIRING_SPECIAL_CURATION:
         df = DATASET_NAME_TO_CURATION_FUNCTION[name](df)
         
-    return df
+    # 4. Drop columns with more than 50% NaN values
+    nan_mask = df.isna()
+    columns = df.columns
+    for column in columns:
+        nof_nans = nan_mask[column].sum()
+        total_values = len(df[column])
+        nan_fraction = float(nof_nans / total_values)
+        if nan_fraction >= 0.5:
+            df = df.drop(column)
+            if column in categorical_features:
+                metadata['categorical_features'].remove(column)
+
+    # 5. Drop any remaining rows that contain any NaNs
+    df = df.dropna().reset_index(drop=True)
+    final_rows, final_columns = df.shape
+    LOG.error(f"Shape of {name}: {initial_rows} -> {final_rows} rows, {initial_columns} -> {final_columns} cols")
+        
+    return df, metadata
 
 
 def process_and_load_datasets(target="db"):
@@ -191,8 +204,8 @@ def process_and_load_datasets(target="db"):
 
         LOG.info(f"Starting processing dataset: {name}")
         try:
-            df = process_dataset(name, csv_path, yaml_path)
-            load_function(name, df, yaml_path)
+            df, yaml_content = process_dataset(name, csv_path, yaml_path)
+            load_function(name, df, yaml_content)
             LOG.info(f"Finished processing dataset: {name}")
 
         except Exception as e:

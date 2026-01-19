@@ -31,7 +31,7 @@ class CleanTabPFN(Pipeline):
         try:
             dataset = data_config.load_dataset()
         except Exception:
-            logger.exception("Failed to load dataset=%s", dataset_name)
+            logger.error("Failed to load dataset=%s", dataset_name)
             raise
 
         # Prepare X and y
@@ -44,7 +44,7 @@ class CleanTabPFN(Pipeline):
             generator = TabPFN(settings=self.model_settings)
             synthetic = generator.generate(dataset, data_config.get_categorical_indices())
         except Exception:
-            logger.exception("TabPFN generation failed for dataset=%s", dataset_name)
+            logger.error("TabPFN generation failed for dataset=%s", dataset_name)
             raise
 
         df = data_config.convert_to_df(synthetic)
@@ -53,7 +53,7 @@ class CleanTabPFN(Pipeline):
             write_dataframe_to_db(df, table_name=table_name, if_exists="replace", schema='tabpfn_clean')
             logger.info("Wrote synthetic data to table=%s", table_name)
         except Exception:
-            logger.exception("Failed to write dataframe to DB for table=%s", table_name)
+            logger.error("Failed to write dataframe to DB for table=%s", table_name)
             raise
 
 if __name__ == "__main__":
@@ -75,4 +75,4 @@ if __name__ == "__main__":
                     logger.info("Running pipeline for dataset=%s", dataset_name)
                     pipeline.run(dataset_name=dataset_name, max_rows=max_rows)
                 except Exception:
-                    logger.exception("Pipeline failed for dataset=%s; continuing", dataset_name)
+                    logger.error("Pipeline failed for dataset=%s; continuing", dataset_name)

@@ -2,6 +2,30 @@ import logging
 from typing import Optional
 
 
+class PostgresDatabaseHandler(logging.Handler):
+    """
+    Custom logging handler that sends ERROR logs to the Postgres database.
+    """
+    def emit(self, record):
+        from synqtab.data.clients.PostgresClient import PostgresClient 
+
+        try:
+            file_info = f"{record.name}:{record.lineno}"
+            experiment_id = getattr(record, "experiment_id", "SYSTEM_LOG")
+            
+            error_msg = record.getMessage()
+            if record.exc_info:
+                error_msg += f"\nTraceback: {self.format(record)}"
+
+            PostgresClient.write_runtime_error(
+                experiment_id=experiment_id,
+                file_path=file_info,
+                error_message=error_msg
+            )
+        except Exception:
+            self.handleError(record)
+
+
 def get_logger(name: Optional[str] = None, level: int = logging.INFO) -> logging.Logger:
     """
     Return a configured logger to be used across the project.
@@ -15,6 +39,7 @@ def get_logger(name: Optional[str] = None, level: int = logging.INFO) -> logging
 
     # If no handlers attached, add a StreamHandler with a standard formatter.
     if not logger.handlers:
+        # 1. Standard Console Logger for INFO and DEBUG
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
             "%(asctime)s %(levelname)s %(name)s:%(lineno)s %(message)s",
@@ -22,6 +47,12 @@ def get_logger(name: Optional[str] = None, level: int = logging.INFO) -> logging
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+        
+        # 2. Automated Postgres Logging only for ERROR
+        db_handler = PostgresDatabaseHandler()
+        db_handler.setLevel(logging.ERROR)
+        logger.addHandler(db_handler)
+        
         # Prevent double logging if root logger is also configured.
         logger.propagate = False
 

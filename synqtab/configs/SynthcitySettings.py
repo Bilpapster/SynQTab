@@ -23,6 +23,26 @@ class SynthcityModelOption(Enum):
     DPGAN = 'dpgan'
     DECAF = 'decaf'
     PRIVBAYES = 'privbayes'
+    
+SYNTHCITY_GENERIC_MODELS = [
+    SynthcityModelOption.CTGAN,
+    SynthcityModelOption.NFLOW,
+    SynthcityModelOption.RTVAE,
+    SynthcityModelOption.TVAE,
+    SynthcityModelOption.DDPM,
+    SynthcityModelOption.ARF,
+    SynthcityModelOption.MARGINAL_DISTRIBUTIONS,
+    SynthcityModelOption.BAYESIAN_NETWORK,
+]
+
+SYNTHCITY_PRIVACY_MODELS = [
+    SynthcityModelOption.ADSGAN,
+    SynthcityModelOption.PATEGAN,
+    SynthcityModelOption.AIM,
+    SynthcityModelOption.DPGAN,
+    SynthcityModelOption.DECAF,
+    SynthcityModelOption.PRIVBAYES,
+]
 
 class SynthcitySettings:
     def __init__(

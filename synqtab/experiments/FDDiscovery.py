@@ -15,7 +15,7 @@ class FDDiscovery:
         try:
             dataset = data_config.fetch_prior_dataset(max_rows=100)
         except Exception:
-            logger.exception("Failed to load dataset=%s", dataset_name)
+            logger.error("Failed to load dataset=%s", dataset_name)
             raise
 
         result_json = self.evaluator.evaluate(dataset)
@@ -48,4 +48,4 @@ else:
                 logger.info("Running FD Discovery for dataset=%s", dataset_name)
                 fd.evaluate(dataset_name)
             except Exception:
-                logger.exception("Pipeline failed for dataset=%s; continuing", dataset_name)
+                logger.error("Pipeline failed for dataset=%s; continuing", dataset_name)

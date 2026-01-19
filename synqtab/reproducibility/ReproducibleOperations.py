@@ -102,6 +102,32 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         return df.sample(frac=1, replace=False).reset_index(drop=True)
 
     @classmethod
+    def train_test_split(cls, *arrays, test_size=None, train_size=None, shuffle=True, stratify=None):
+        """Performs train/test split leveraging sklearns respective implementation:
+        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html.
+        The splitting is performed with the appropriate random seed for reproducibility. For details
+        on the parameters, please see the original implementation.
+
+        Args:
+            test_size (float | int, optional): See original implementation. Defaults to None.
+            train_size (float | int, optional): See original implementation. Defaults to None.
+            shuffle (bool, optional): See original implementation. Defaults to True.
+            stratify (array-like, optional): See original implementation. Defaults to None.
+
+        Returns:
+            list: The splitting as returned by sklearn's implementation. 2 * len(arrays) arrays.
+        """
+        from sklearn.model_selection import train_test_split
+        return train_test_split(
+            arrays,
+            test_size=test_size,
+            train_size=train_size,
+            shuffle=True,
+            stratify=stratify,
+            random_state=cls._random_seed,
+        )
+
+    @classmethod
     def get_isolation_forest_model(cls, n_estimators: int = 100, contamination: float | str = "auto"):
         """Returns an Isolation Forest model with the appropriate random seed. Leverages
         https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html
@@ -156,4 +182,5 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
             model_type=model_type,
             gradient_accumulation_steps=gradient_accumulation_steps,
             logging_steps=logging_steps,
+            random_state=cls._random_seed
         )

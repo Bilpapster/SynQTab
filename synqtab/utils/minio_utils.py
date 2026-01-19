@@ -57,7 +57,7 @@ def get_minio_client() -> BaseClient:
         )
         return client
     except Exception:
-        LOG.exception("Failed to create MinIO client.")
+        LOG.error("Failed to create MinIO client.")
         raise
 
 
@@ -74,7 +74,7 @@ def get_existing_buckets(client: Optional[BaseClient] = None) -> List[str]:
         LOG.info(f"Retrieved {len(buckets)} buckets.")
         return buckets
     except ClientError:
-        LOG.exception("Failed to list buckets.")
+        LOG.error("Failed to list buckets.")
         raise
 
 
@@ -94,7 +94,7 @@ def ensure_bucket_exists(bucket_name: str, client: Optional[BaseClient] = None) 
             client.create_bucket(Bucket=bucket_name)
             LOG.info(f"Created bucket '{bucket_name}'.")
         except ClientError:
-            LOG.exception(f"Failed to create bucket '{bucket_name}'.")
+            LOG.error(f"Failed to create bucket '{bucket_name}'.")
             raise
 
 
@@ -116,7 +116,7 @@ def list_bucket_objects(
         LOG.info(f"Found {len(contents)} objects in '{bucket_name}' with prefix '{prefix}'.")
         return contents
     except ClientError:
-        LOG.exception(f"Failed to list objects in bucket '{bucket_name}'.")
+        LOG.error(f"Failed to list objects in bucket '{bucket_name}'.")
         raise
 
 
@@ -149,7 +149,7 @@ def upload_file_to_bucket(
         LOG.error(f"The file '{local_file_path}' was not found.")
         raise
     except (ClientError, NoCredentialsError):
-        LOG.exception(f"Failed to upload '{local_file_path}' to '{bucket_name}'.")
+        LOG.error(f"Failed to upload '{local_file_path}' to '{bucket_name}'.")
         raise
 
 
@@ -172,7 +172,7 @@ def download_file_from_bucket(
         client.download_file(bucket_name, object_name, local_file_path)
         LOG.info(f"Downloaded '{bucket_name}/{object_name}' to '{local_file_path}'.")
     except ClientError:
-        LOG.exception(f"Failed to download object '{object_name}' from bucket '{bucket_name}'.")
+        LOG.error(f"Failed to download object '{object_name}' from bucket '{bucket_name}'.")
         raise
 
 def read_parquet_from_bucket(
@@ -200,7 +200,7 @@ def read_parquet_from_bucket(
         LOG.info(f"Loaded Parquet from '{bucket_str}/{object_name}' into DataFrame with shape {df.shape}.")
         return df
     except ClientError:
-        LOG.exception(f"Failed to read Parquet from bucket '{bucket_str}'.")
+        LOG.error(f"Failed to read Parquet from bucket '{bucket_str}'.")
         raise
 
 def read_yaml_from_bucket(
@@ -226,7 +226,7 @@ def read_yaml_from_bucket(
         LOG.info(f"Loaded YAML from '{bucket_name}/{object_name}'.")
         return data
     except ClientError:
-        LOG.exception(f"Failed to read YAML from bucket '{bucket_name}'.")
+        LOG.error(f"Failed to read YAML from bucket '{bucket_name}'.")
         raise
 
 def upload_json_to_bucket(
@@ -271,5 +271,5 @@ def upload_json_to_bucket(
         )
         LOG.info(f"Uploaded JSON to '{bucket_str}/{object_key}'.")
     except ClientError:
-        LOG.exception(f"Failed to upload JSON to '{bucket_str}/{object_key}'.")
+        LOG.error(f"Failed to upload JSON to '{bucket_str}/{object_key}'.")
         raise

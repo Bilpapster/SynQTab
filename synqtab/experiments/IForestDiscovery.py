@@ -16,7 +16,7 @@ class IForestDiscovery:
         try:
             dataset = data_config.fetch_prior_dataset()
         except Exception:
-            logger.exception("Failed to load dataset=%s", dataset_name)
+            logger.error("Failed to load dataset=%s", dataset_name)
             raise
 
         result_json = self.evaluator.evaluate(dataset)
@@ -49,4 +49,4 @@ else:
                 logger.info("Running Isolation Forest outlier detection for dataset=%s", dataset_name)
                 iforest.evaluate(dataset_name)
             except Exception:
-                logger.exception("Pipeline failed for dataset=%s; continuing", dataset_name)
+                logger.error("Pipeline failed for dataset=%s; continuing", dataset_name)
