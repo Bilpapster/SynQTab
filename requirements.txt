@@ -1,7 +1,11 @@
-psycopg2-binary
-protobuf<4
-synthcity
-boto3
-python-dotenv==1.0.1
-ipython==9.9.0
-tabpfn-extensions[all] @ git+https://github.com/PriorLabs/tabpfn-extensions.git
+psycopg2-binary~=2.9.11
+protobuf~=3.20.3
+# synthcity # removed because we are using the revamped version. See scripts/synthcity-patches/README.md
+boto3~=1.42.30
+python-dotenv~=1.0.1
+ipython~=9.9.0
+tabpfn-extensions[all] @ git+https://github.com/PriorLabs/tabpfn-extensions@1960cc63a419f9022e902c17bb2c5407ed9e5431
+tensorflow~=2.19.1
+desbordante~=2.4.1
+sdmetrics~=0.25.0
+realtabformer~=0.2.4
