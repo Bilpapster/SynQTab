@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple
 import pandas as pd
     
-from synqtab.reproducibility import ReproducibilityError
+from synqtab.reproducibility.ReproducibilityError import ReproducibilityError
 
 
 class Singleton(type):
@@ -33,6 +33,10 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
     @classmethod
     def set_random_seed(cls, random_seed: int | float):
         cls._random_seed = random_seed
+
+    @classmethod
+    def get_current_random_seed(cls) -> int:
+        return cls._random_seed
 
     @classmethod
     def sample_from(

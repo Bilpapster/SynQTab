@@ -8,11 +8,11 @@ import random
 from synqtab.data.clients.MinioClient import MinioClient
 from synqtab.data.Dataset import Dataset
 from synqtab.enums.data import DataErrorType, DataPerfectness
-from synqtab.enums.evaluators import QUALITY_EVALUATORS
+from synqtab.enums.evaluators import QUALITY_EVALUATORS, ML_FOCUSED_EVALUATORS
 from synqtab.enums.generators import GENERIC_MODELS
 from synqtab.enums.minio import MinioBucket, MinioFolder
 from synqtab.experiments.NormalExperiment import NormalExperiment
-from synqtab.environment.experiment import RANDOM_SEEDS
+from synqtab.environment.experiment import RANDOM_SEEDS, ERROR_RATES
 from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
 
 
@@ -32,46 +32,76 @@ pp(f"{models=}", compact=True); print()
 errors = [error for error in DataErrorType]; random.shuffle(errors)
 pp(f"{errors=}", compact=True); print()
 
+error_rates = copy.deepcopy(ERROR_RATES); random.shuffle(error_rates)
+pp(f"{error_rates=}")
+
 data_perfectness_levels = [DataPerfectness.IMPERFECT, DataPerfectness.SEMIPERFECT]
 random.shuffle(data_perfectness_levels)
 pp(f"{data_perfectness_levels=}", compact=True); print()
 
-evaluators = copy.deepcopy(QUALITY_EVALUATORS); random.shuffle(evaluators)
+evaluators = copy.deepcopy(QUALITY_EVALUATORS + ML_FOCUSED_EVALUATORS); random.shuffle(evaluators)
 pp(f"{evaluators=}", compact=True); print()
+
+
+from synqtab.errors.LabelError import LabelError
+
+import pandas as pd
+
+data = {
+  "calories": [420, 380, 390],
+  "duration": [50, 40, 45],
+  "target": [1, 0, 1]
+}
+
+#load data into a DataFrame object:
+df = pd.DataFrame(data)
+
+ReproducibleOperations.set_random_seed(1)
+label_error = LabelError(0.2).corrupt(df, target_feature="target")
+print(label_error[1], label_error[2])
+print(label_error[0].head(10))
 
 exit(0)
 
 
 # First, generate all perfect synthetic data (S)
 for random_seed in random_seeds:
+    ReproducibleOperations.set_random_seed(random_seed)
     for dataset_name in dataset_names:
+        dataset = Dataset(dataset_name)
         for model in models:
-            for error in errors:
-                ReproducibleOperations.set_random_seed(random_seed)
-                dataset = Dataset(dataset_name)
+            try:
                 normal_experiment = NormalExperiment(
                     dataset=dataset,
                     generator=model,
-                    data_error=error,
+                    data_error=None,
+                    data_error_rate=None,
                     data_perfectness=DataPerfectness.PERFECT, # only perfect data at first
                     evaluators=None,
                 )
                 normal_experiment.run().persist()
+            except Exception:
+                continue # All exceptions are logged at creation time, no need for extra action here
 
 
 # Then, generate all imperfect (S_hat) and semi-perfect (S_semi) and populate evaluation tasks
 for random_seed in random_seeds:
+    ReproducibleOperations.set_random_seed(random_seed)
     for dataset_name in dataset_names:
+        dataset = Dataset(dataset_name)
         for model in models:
             for error in errors:
-                for perfectness_level in data_perfectness_levels:
-                    ReproducibleOperations.set_random_seed(random_seed)
-                    dataset = Dataset(dataset_name)
-                    normal_experiment = NormalExperiment(
-                        dataset=dataset,
-                        generator=model,
-                        data_error=error,
-                        data_perfectness=perfectness_level,
-                        evaluators=evaluators,
-                    )
-                    normal_experiment.run().persist().polulate_tasks()
+                for error_rate in error_rates:
+                    for perfectness_level in data_perfectness_levels:
+                        try:
+                            normal_experiment = NormalExperiment(
+                                dataset=dataset,
+                                generator=model,
+                                data_error=error,
+                                data_error_rate=error_rate,
+                                data_perfectness=perfectness_level,
+                                evaluators=evaluators,
+                            )
+                            normal_experiment.run().persist().populate_tasks()
+                        except Exception:
+                            continue # All exceptions are logged at creation time, no need for extra action here

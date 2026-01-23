@@ -15,7 +15,7 @@ class CategoricalShift(DataError):
     def short_name(self) -> str:
         return "SFT"
 
-    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt):
+    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         for column_to_corrupt in columns_to_corrupt:
             distinct_values = data_to_corrupt[column_to_corrupt].value_counts().index
             permuted_distinct_values = ReproducibleOperations.permutation(distinct_values)

@@ -89,7 +89,7 @@ class Inconsistency(DataError):
         )
 
     def _apply_corruption_to_categorical_column(
-        self, data_to_corrupt, rows_to_corrupt, categorical_column_to_corrupt
+        self, data_to_corrupt, rows_to_corrupt, categorical_column_to_corrupt, **kwargs
     ):
         """Applies corruption (typos) to a categorical column.
 
@@ -115,10 +115,10 @@ class Inconsistency(DataError):
         )
         return data_to_corrupt
 
-    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt):
+    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         for column_to_corrupt in columns_to_corrupt:
             data_to_corrupt = self._apply_corruption_to_categorical_column(
-                data_to_corrupt, rows_to_corrupt, column_to_corrupt
+                data_to_corrupt, rows_to_corrupt, column_to_corrupt, **kwargs
             )
 
         return data_to_corrupt

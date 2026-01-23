@@ -39,11 +39,15 @@ QUALITY_EVALUATORS: list[EvaluationMethod] = [
     EvaluationMethod.HFD,
     EvaluationMethod.IFO,
     EvaluationMethod.LOF,
+    EvaluationMethod.QLT,
+]
+
+
+ML_FOCUSED_EVALUATORS: list[EvaluationMethod] = [
     EvaluationMethod.APR,
     EvaluationMethod.ARC,
     EvaluationMethod.AR2,
     EvaluationMethod.EFF,
-    EvaluationMethod.QLT,
 ]
 
 

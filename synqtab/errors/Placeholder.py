@@ -20,7 +20,7 @@ class Placeholder(DataError):
 
     # Based on Jenga's implementation
     # https://github.com/schelterlabs/jenga/blob/a8bd74a588176e64183432a0124553c774adb20d/src/jenga/corruptions/generic.py#L26
-    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt):
+    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         for column_to_corrupt in columns_to_corrupt:
             missing_value = (
                 self.CATEGORICAL_MISSING_VALUE

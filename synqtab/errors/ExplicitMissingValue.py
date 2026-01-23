@@ -17,6 +17,6 @@ class ExplicitMissingValue(DataError):
     def short_name(self):
         return "EMV"
 
-    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt):
+    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         data_to_corrupt.loc[rows_to_corrupt, columns_to_corrupt] = self.MISSING_VALUE
         return data_to_corrupt

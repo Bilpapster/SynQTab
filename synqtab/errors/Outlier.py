@@ -11,7 +11,7 @@ class Outliers(DataError):
     def data_error_applicability(self) -> DataErrorApplicability:
         return DataErrorApplicability.NUMERIC_ONLY
 
-    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt):
+    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         for column_to_corrupt in columns_to_corrupt:
             scale_factor = ReproducibleOperations.sample_from(self.SCALE_FACTORS)
             data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] *= scale_factor

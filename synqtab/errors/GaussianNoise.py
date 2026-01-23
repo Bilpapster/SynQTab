@@ -22,7 +22,7 @@ class GaussianNoise(DataError):
     def short_name(self):
         return "NOI"
 
-    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt):
+    def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         for column_to_corrupt in columns_to_corrupt:
             stddev = std(data_to_corrupt[column_to_corrupt])
             scale = ReproducibleOperations.uniform(
