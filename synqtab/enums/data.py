@@ -15,9 +15,9 @@ class ProblemType(Enum):
 
 
 class DataPerfectness(Enum):
-    PERFECT = 'perfect'
-    IMPERFECT = 'imperfect'
-    SEMIPERFECT = 'semiperfect'
+    PERFECT = 'PERF'
+    IMPERFECT = 'IMP'
+    SEMIPERFECT = 'SEMI'
     
     def short_name(self) -> str:
         """First 3 letters in capital for imperfect; first 4 letters in capital for

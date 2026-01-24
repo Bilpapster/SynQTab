@@ -14,6 +14,6 @@ class MinioFolder(Enum):
     METADATA = 'metadata'
     
     @staticmethod
-    def create_path(*folders: list[Self]):
+    def create_prefix(*folders: list[Self]):
         return '/'.join([folder if type(folder) == str else folder.value
                          for folder in folders])

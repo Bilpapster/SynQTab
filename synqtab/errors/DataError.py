@@ -85,7 +85,7 @@ class DataError(ABC):
 
     def identify_rows_to_corrupt(self, data: pd.DataFrame, **kwargs) -> None:
         self.rows_to_corrupt = ReproducibleOperations.sample_from(
-            elements=data.index.to_list(), how_many=self.row_fraction * data.shape[0]
+            elements=data.index.to_list(), how_many=int(max(self.row_fraction * data.shape[0], 1))
         )
 
     def identify_columns_to_corrupt(self, **kwargs) -> None:

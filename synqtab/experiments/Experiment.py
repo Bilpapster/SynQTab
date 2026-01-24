@@ -1,21 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Self, Tuple
-import pandas as pd
+from typing import Any, Dict, Optional, Self
 
 from synqtab.data.Dataset import Dataset
-from synqtab.enums.data import DataPerfectness
+from synqtab.enums.data import DataPerfectness, DataErrorType
 from synqtab.enums.evaluators import EvaluationMethod
 from synqtab.enums.generators import GeneratorModel
-from synqtab.generators.Generator import Generator
 from synqtab.errors.DataError import DataError
-from synqtab.errors.DataErrorApplicability import DataErrorApplicability
-from synqtab.reproducibility.ReproducibleOperations import (
-    ReproducibilityError, ReproducibleOperations
-)
+from synqtab.utils.logging_utils import get_logger
+
+
+LOG = get_logger(__file__)
+
 
 class Experiment(ABC):
     
     _delimiter: str = '#'
+    _NULL: str = 'NULL'
     translator: str
 
     def __init__(
@@ -36,25 +36,78 @@ class Experiment(ABC):
         self.evaluators = evaluators
         self.options = options
         
-        self.initialize_other_attributes()
+        self._should_compute = self._already_exists()
         
+    @classmethod
     @abstractmethod
-    def short_name(self):
+    def short_name(cls):
         pass
     
-    def _get_experiment_id(self):
+    # IMPORTANT: Keep this method aligned with the from_str() method!
+    def _get_experiment_id_parts(self):
         from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
-        experiment_id_parts = [
-            self.short_name(),
-            self.dataset.dataset_name,
-            ReproducibleOperations.get_current_random_seed(),
-            self.data_perfectness.short_name(),
-            self.data_error.short_name() if self.data_error else 'N/A',
-            str(int(self.data_error_rate * 100)) if self.data_error_rate else 'N/A',
-            self.generator.value
+        return [
+            self.short_name(),  # Experiment shortname, e.g., 'NOR' for Normal Experiment
+            self.dataset.dataset_name,  # Dataset name, e.g., 'anneal'
+            str(ReproducibleOperations.get_current_random_seed()),  # Random seed
+            self.data_perfectness.short_name(), # Data perfectness level, e.g., 'PERF' for perfect
+            self.data_error.value if self.data_error else self._NULL,    # Data error type, e.g., 'OUT' for outliers
+            str(self.data_error_rate * 100) if self.data_error_rate else self._NULL, # Data error rate multiplied by 100, e.g., 0.2 -> 20
+            self.generator.value,   # Generator type, e.g., 'tabpfn' 
         ]
+    
+    # IMPORTANT: Keep this method aligned with the _get_experiment_parts() method!
+    @classmethod
+    def from_str(cls, experiment_id: str) -> tuple[Self, int]:
+        from synqtab.mappings.mappings import EXPERIMENT_TYPE_TO_EXPERIMENT_CLASS
+        from synqtab.data.Dataset import Dataset
+        from synqtab.enums.data import DataPerfectness
+        from synqtab.enums.generators import GeneratorModel
+        
+        experiment_id_parts = experiment_id.split(cls._delimiter)
+        experiment_short_name = experiment_id_parts[0]
+        dataset = Dataset(experiment_id_parts[1])
+        random_seed = int(experiment_id_parts[2])
+        data_perfectness = DataPerfectness(experiment_id_parts[3])
+        data_error = None if experiment_id_parts[4] == cls._NULL else DataErrorType(experiment_id_parts[4])
+        data_error_rate = None if experiment_id_parts[5] == cls._NULL else float(experiment_id_parts[5] / 100)
+        generator = GeneratorModel(experiment_id_parts[6])
+        
+        for experiment_type, experiment_class in EXPERIMENT_TYPE_TO_EXPERIMENT_CLASS.items():
+            if experiment_short_name == experiment_class.short_name():
+                LOG.info(f"Experiment {experiment_id} found to be of class {experiment_class.__name__}")
+                return experiment_class(
+                    dataset=dataset,
+                    generator=generator,
+                    data_error=data_error,
+                    data_error_rate=data_error_rate,
+                    data_perfectness=data_perfectness,
+                ), random_seed # RETURNS TUPLE: Experiment class + random seed!
+    
+    def __str__(self):
+        from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
+        
+        experiment_id_parts = self._get_experiment_id_parts()
         return self._delimiter.join(experiment_id_parts)
-     
+    
+    def to_minio_path(self):
+        from synqtab.enums.minio import MinioFolder, MinioBucket
+        from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
+        
+        bucket = MinioBucket.SYNTHETIC
+        prefix = MinioFolder.create_prefix(
+            MinioFolder.DATA,
+            f"experiment={self.short_name}",
+            f"dataset={self.dataset.dataset_name}",
+            f"random_seed={ReproducibleOperations.get_current_random_seed}",
+            f"perfectness={self.data_perfectness}",
+            f""
+            f"generator={}"
+        )
+        
+        return MinioFolder.create_prefix(
+            
+        )
         
     def run(self) -> Self:
         return self
@@ -64,95 +117,7 @@ class Experiment(ABC):
     
     def populate_tasks(self) -> Self:
         return self
-        
 
-    # @abstractmethod
-    # def data_error_applicability(self) -> DataErrorApplicability:
-    #     pass
-
-    # def find_numerical_categorical_columns(self) -> None:
-    #     self.categorical_columns = [
-    #         column
-    #         for column in self.corrupted_data.columns
-    #         if isinstance(self.corrupted_data[column].dtype, pd.CategoricalDtype)
-    #     ]
-    #     self.numeric_columns = [
-    #         column
-    #         for column in self.corrupted_data.columns
-    #         if pd.api.types.is_numeric_dtype(self.corrupted_data[column].dtype)
-    #     ]
-
-    # def identify_rows_to_corrupt(self, data: pd.DataFrame) -> None:
-    #     self.rows_to_corrupt = ReproducibleOperations.sample_from(
-    #         elements=data.index.to_list(), how_many=self.row_fraction * data.shape[0]
-    #     )
-
-    # def identify_columns_to_corrupt(self) -> None:
-    #     total_number_of_columns = len(self.numeric_columns + self.categorical_columns)
-    #     number_of_columns_to_corrupt = self.column_fraction * total_number_of_columns
-
-    #     match self.dataErrorApplicability():
-    #         case DataErrorApplicability.CATEGORICAL_ONLY:
-    #             self.columns_to_corrupt = ReproducibleOperations.sample_from(
-    #                 elements=self.categorical_columns,
-    #                 how_many=number_of_columns_to_corrupt,
-    #             )
-
-    #         case DataErrorApplicability.NUMERIC_ONLY:
-    #             self.columns_to_corrupt = ReproducibleOperations.sample_from(
-    #                 elements=self.numeric_columns,
-    #                 how_many=number_of_columns_to_corrupt
-    #             )
-
-    #         case DataErrorApplicability.ANY_COLUMN:
-    #             self.columns_to_corrupt = ReproducibleOperations.sample_from(
-    #                 elements=self.numeric_columns + self.categorical_columns,
-    #                 how_many=number_of_columns_to_corrupt,
-    #             )
-
-    #         case _ as not_implemented_category:
-    #             raise NotImplementedError(
-    #                 f"Unknown data error applicability type. Got {not_implemented_category}. \
-    #                     Valid options: {[option.value for option in DataErrorApplicability]}."
-    #             )
-
-    # def corrupt(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, List, List]:
-    #     # prepare for corruption
-    #     self.corrupted_data = data.copy(deep=True)
-    #     self.find_numerical_categorical_columns()
-    #     self.identify_rows_to_corrupt(data)
-    #     self.identify_columns_to_corrupt()
-
-    #     # apply corruption; this is meant to be overriden for each specific data error type
-    #     self.corrupted_data = self._apply_corruption(
-    #         data_to_corrupt=self.corrupted_data,
-    #         rows_to_corrupt=self.rows_to_corrupt,
-    #         columns_to_corrupt=self.columns_to_corrupt,
-    #     )
-
-    #     # return tuple in a standardized way; single-point of change if needed
-    #     return self.corruption_result_output_tuple()
-
-    # @abstractmethod
-    # def _apply_corruption(
-    #     self,
-    #     data_to_corrupt: pd.DataFrame,
-    #     rows_to_corrupt: List,
-    #     columns_to_corrupt: List,
-    # ) -> pd.DataFrame:
-    #     """Apply the data corruption logic on the data to corrupt. The rows and columns
-    #     to be corrupted are already provided as arguments. This function is meant to only
-    #     apply the actual data corruption on the provided `data_to_corrupt` and return it.
-
-    #     Args:
-    #         data_to_corrupt (pd.DataFrame): The data to apply corruption on. You should modify it and return it.
-    #         rows_to_corrupt (List): The rows to apply corruption on.
-    #         columns_to_corrupt (List): The columns to apply corruption on. Data error compatibility is already ensured.
-
-    #     Returns:
-    #         pd.DataFrame: The corrupted data frame.
-    #     """
-    #     pass
-
-    # def corruption_result_output_tuple(self) -> Tuple[pd.DataFrame, List, List]:
-    #     return self.corrupted_data, self.rows_to_corrupt, self.columns_to_corrupt
+    def _already_exists(self) -> bool:
+        experiment_id = self.__str__()
+    

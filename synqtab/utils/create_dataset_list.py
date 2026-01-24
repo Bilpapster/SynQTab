@@ -52,6 +52,6 @@ if __name__ == "__main__":
     # Example usage
     create_parquet_list(
         bucket_name=MinioBucket.REAL,
-        prefix=MinioFolder.create_path(MinioFolder.PERFECT, MinioFolder.DATA),
+        prefix=MinioFolder.create_prefix(MinioFolder.PERFECT, MinioFolder.DATA),
         output_file="tabarena_list.txt"
     )

@@ -11,9 +11,14 @@ from synqtab.enums.data import DataErrorType, DataPerfectness
 from synqtab.enums.evaluators import QUALITY_EVALUATORS, ML_FOCUSED_EVALUATORS
 from synqtab.enums.generators import GENERIC_MODELS
 from synqtab.enums.minio import MinioBucket, MinioFolder
+from synqtab.experiments.Experiment import Experiment
 from synqtab.experiments.NormalExperiment import NormalExperiment
 from synqtab.environment.experiment import RANDOM_SEEDS, ERROR_RATES
 from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
+from synqtab.utils.logging_utils import get_logger
+
+
+LOG = get_logger(__file__)
 
 
 random_seeds = copy.deepcopy(RANDOM_SEEDS); random.shuffle(random_seeds)
@@ -22,7 +27,7 @@ pp(f"{random_seeds=}")
 dataset_names = MinioClient.list_files_in_bucket_by_file_extension(
     bucket_name=MinioBucket.REAL.value,
     file_extension='parquet',
-    prefix=MinioFolder.create_path(MinioFolder.PERFECT, MinioFolder.DATA),
+    prefix=MinioFolder.create_prefix(MinioFolder.PERFECT, MinioFolder.DATA),
 ); random.shuffle(dataset_names)
 pp(f"{dataset_names=}", compact=True); print()
 
@@ -44,24 +49,33 @@ pp(f"{evaluators=}", compact=True); print()
 
 
 from synqtab.errors.LabelError import LabelError
+from synqtab.errors.GaussianNoise import GaussianNoise
 
 import pandas as pd
 
+ReproducibleOperations.set_random_seed(2)
 data = {
-  "calories": [420, 380, 390],
-  "duration": [50, 40, 45],
-  "target": [1, 0, 1]
+  "calories": range(1, 101),
+  "duration": range(201, 301),
+  "target": ReproducibleOperations.sample_from([0, 1, 2, 3, 4], how_many=100, sampling_with_replacement=True)
 }
 
-#load data into a DataFrame object:
-df = pd.DataFrame(data)
+print(len(data.get('calories')))
+print(len(data.get('duration')))
+print(len(data.get('target')))
 
-ReproducibleOperations.set_random_seed(1)
-label_error = LabelError(0.2).corrupt(df, target_feature="target")
-print(label_error[1], label_error[2])
-print(label_error[0].head(10))
+# #load data into a DataFrame object:
+# df = pd.DataFrame(data)
 
-exit(0)
+# label_error = LabelError(0.9).corrupt(df, target_feature="target")
+# print(label_error[1], label_error[2])
+# print(label_error[0].head(10))
+
+# noisy_df, corrupted_rows, corrupted_cols = GaussianNoise(0.4).corrupt(df)
+# print(corrupted_rows, corrupted_cols)
+# print(noisy_df.head(10))
+
+# exit(0)
 
 
 # First, generate all perfect synthetic data (S)
@@ -80,8 +94,16 @@ for random_seed in random_seeds:
                     evaluators=None,
                 )
                 normal_experiment.run().persist()
-            except Exception:
-                continue # All exceptions are logged at creation time, no need for extra action here
+                print(normal_experiment)
+                experiment, seed = Experiment.from_str(str(normal_experiment))
+                print(experiment, seed)
+                exit(0)
+            except Exception as e:
+                LOG.error(
+                    f"The experiment failed but I will continue to the next one. Error: {e}",
+                    extra={'experiment_id': str(normal_experiment)}
+                )
+                continue
 
 
 # Then, generate all imperfect (S_hat) and semi-perfect (S_semi) and populate evaluation tasks
@@ -103,5 +125,11 @@ for random_seed in random_seeds:
                                 evaluators=evaluators,
                             )
                             normal_experiment.run().persist().populate_tasks()
-                        except Exception:
-                            continue # All exceptions are logged at creation time, no need for extra action here
+                            print(normal_experiment)
+                            
+                        except Exception as e:
+                            LOG.error(
+                                f"The experiment failed but I will continue to the next one. Error: {e}",
+                                extra={'experiment_id': str(normal_experiment)}
+                            )
+                            continue
