@@ -59,6 +59,10 @@ for random_seed in experimental_params.get('random_seeds'):
                 for error_rate in experimental_params.get('error_rates'):
                     for perfectness_level in experimental_params.get('data_perfectness_levels'):
                         try:
+                            if perfectness_level == DataPerfectness.SEMIPERFECT and error_rate != 0.4:
+                                # We investigate the cleaning dilemma only for 0.4 error rate
+                                continue
+
                             normal_experiment = NormalExperiment(
                                 dataset=dataset,
                                 generator=model,

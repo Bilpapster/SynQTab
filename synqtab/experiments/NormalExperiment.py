@@ -14,15 +14,17 @@ class NormalExperiment(Experiment):
     
     def _run(self) -> None:
         from synqtab.data import PostgresClient, MinioClient
-        from synqtab.enums import Metadata, MinioBucket
+        from synqtab.enums import Metadata, MinioBucket, ProblemType
         from synqtab.mappings.mappings import GENERATOR_MODEL_TO_GENERATOR_INSTANCE
         from synqtab.reproducibility import ReproducibleOperations
         from synqtab.utils import timed_computation
         
         real_perfect_df = self.dataset._fetch_real_perfect_dataframe()
         target_column_name = self.dataset.metadata.get(Metadata.TARGET_FEATURE)
-        target = real_perfect_df[target_column_name] # TODO IF IT IS REGRESSION, MAKE BINS
-        training_df, validation_df = ReproducibleOperations.train_test_split(real_perfect_df, test_size=0.5, stratify=target)
+        target = real_perfect_df[target_column_name]
+        problem_type = ProblemType(self.dataset.metadata.get(Metadata.PROBLEM_TYPE))
+        training_df, validation_df = ReproducibleOperations.train_test_split(
+            real_perfect_df, test_size=0.5, stratify=target, problem_type=problem_type)
         
         corrupted_rows = corrupted_cols = []
         if self.data_error:
