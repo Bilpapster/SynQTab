@@ -1,5 +1,3 @@
-from sklearn.neighbors import LocalOutlierFactor
-
 from synqtab.evaluators.Evaluator import Evaluator
 
 
@@ -19,7 +17,16 @@ class LofEvaluator(Evaluator):
         self.contamination = contamination
         self.notes = notes
         
+    def short_name(self):
+        from synqtab.enums import EvaluationMethod
+        return str(EvaluationMethod.LOF)
+    
+    def full_name(self):
+        return "Local Outlier Factor Outlier Detection"
+        
     def compute_result(self):
+        from sklearn.neighbors import LocalOutlierFactor
+        
         data = self.params('data')
         lof = LocalOutlierFactor(
             n_neighbors=self.params.get('n_neighbors', 20),

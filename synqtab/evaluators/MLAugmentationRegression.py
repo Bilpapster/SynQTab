@@ -1,7 +1,3 @@
-import pandas as pd
-from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
-
-from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
 from synqtab.evaluators.Evaluator import Evaluator
 
 
@@ -14,8 +10,24 @@ class MLAugmentationRegression(Evaluator):
         - [*optional*] `'notes'`: True/False on whether  to include notes in the result or not.
         If absent, defaults to False.
     """
+    
+    def short_name(self):
+        from synqtab.enums import EvaluationMethod
+        return str(EvaluationMethod.AR2)
+    
+    def full_name(self):
+        return "ML Augmentation R2"
+    
+    def is_compatible_with(self, dataset) -> bool:
+        from synqtab.enums import Metadata, ProblemType
+        
+        return dataset.metadata.get(Metadata.PROBLEM_TYPE) == str(ProblemType.REGRESSION)
         
     def compute_result(self):
+        import pandas as pd
+        from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+        from synqtab.reproducibility import ReproducibleOperations
+        
         real_training_data = self.params.get('real_training_data')
         synthetic_data = self.params.get('synthetic_data')
         prediction_column_name = self.params.get('prediction_column_name')

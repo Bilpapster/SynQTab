@@ -1,4 +1,3 @@
-from sdmetrics.reports.single_table import QualityReport
 from synqtab.evaluators.Evaluator import Evaluator
 
 
@@ -12,8 +11,16 @@ class QualityEvaluator(Evaluator):
         - [*optional*] `'notes'`: True/False on whether to include notes in the result or not.
         If absent, defaults to False.
     """
+    
+    def short_name(self):
+        from synqtab.enums import EvaluationMethod
+        return str(EvaluationMethod.QLT)
+    
+    def full_name(self):
+        return "Quality Evaluator"
         
     def compute_result(self):
+        from sdmetrics.reports.single_table import QualityReport
         try:
             # Initialize the SDMetrics QualityReport
             quality_report = QualityReport()

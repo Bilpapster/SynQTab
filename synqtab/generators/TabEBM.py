@@ -3,7 +3,7 @@ from typing import Optional
 from synqtab.generators import Generator
 
 
-class TabPFN(Generator):
+class TabEBM(Generator):
     """
     TabPFN synthetic data generator using TabPFN Unsupervised Model.
     """
@@ -14,14 +14,11 @@ class TabPFN(Generator):
     def generate(self, X_initial, y_initial, params: Optional[dict]=None):
         import torch
         import pandas as pd
-        from tabpfn_extensions import TabPFNUnsupervisedModel
         from synqtab.reproducibility import ReproducibleOperations
         
         # TODO extract categorical extraction to another generic utility class
         # TODO revise the generators to also get the random seed and pass it to classifier and regressor
-        classifier = ReproducibleOperations.get_tabpfn_classifier_model()
-        regressor = ReproducibleOperations.get_tabpfn_regression_model()
-        self.generator = TabPFNUnsupervisedModel(classifier, regressor)
+        self.generator = ReproducibleOperations.get_tabebm_model()
         df = pd.concat([X_initial, y_initial], axis=1)
         df_tensor = torch.tensor(pd.get_dummies(df), dtype=torch.float32)
         self.generator.fit(df_tensor)

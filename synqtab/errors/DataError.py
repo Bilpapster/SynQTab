@@ -2,22 +2,20 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
-from synqtab.pollution.DataErrorApplicability import DataErrorApplicability
-from synqtab.reproducibility.ReproducibleOperations import (
-    ReproducibilityError, ReproducibleOperations
-)
+from synqtab.errors.DataErrorApplicability import DataErrorApplicability
+from synqtab.reproducibility import ReproducibleOperations
 
 
 class DataError(ABC):
 
     def __init__(
         self,
-        random_seed: int | float,
+        # random_seed: int | float,
         row_fraction: float,
-        column_fraction: float,
+        column_fraction: float = 0.2,
         options: Optional[Dict[Any, Any]] = None,
     ):
-        self.random_seed = random_seed
+        # self.random_seed = random_seed
         self.row_fraction = row_fraction
         self.column_fraction = column_fraction
         self.options = options
@@ -27,26 +25,34 @@ class DataError(ABC):
     @abstractmethod
     def data_error_applicability(self) -> DataErrorApplicability:
         pass
+    
+    @abstractmethod
+    def full_name(self) -> str:
+        pass
+    
+    @abstractmethod
+    def short_name(self) -> str:
+        pass
 
     def validate_instance_attributes(self) -> None:
-        self.validate_random_seed()
+        # self.validate_random_seed()
         self.validate_row_fraction()
         self.validate_column_fraction()
         self.validate_options()
 
     def initialize_other_attributes(self):
-        ReproducibleOperations.set_random_seed(self.random_seed)
+        # ReproducibleOperations.set_random_seed(self.random_seed)
         self.categorical_columns = []
         self.numeric_columns = []
         self.rows_to_corrupt = []
         self.columns_to_corrupt = []
         self.corrupted_data = None
 
-    def validate_random_seed(self) -> None:
-        if not self.random_seed:
-            raise ReproducibilityError(
-                f"Setting the random seed to None is not reproducible. I was expecting any integer or float number."
-            )
+    # def validate_random_seed(self) -> None:
+    #     if not self.random_seed:
+    #         raise ReproducibilityError(
+    #             f"Setting the random seed to None is not reproducible. I was expecting any integer or float number."
+    #         )
 
     def validate_row_fraction(self) -> None:
         if not 0 <= self.row_fraction <= 1:
@@ -63,7 +69,7 @@ class DataError(ABC):
     def validate_options(self) -> None:
         pass
 
-    def find_numerical_categorical_columns(self) -> None:
+    def find_numerical_categorical_columns(self, **kwargs) -> None:
         self.categorical_columns = [
             column
             for column in self.corrupted_data.columns
@@ -75,16 +81,16 @@ class DataError(ABC):
             if pd.api.types.is_numeric_dtype(self.corrupted_data[column].dtype)
         ]
 
-    def identify_rows_to_corrupt(self, data: pd.DataFrame) -> None:
+    def identify_rows_to_corrupt(self, data: pd.DataFrame, **kwargs) -> None:
         self.rows_to_corrupt = ReproducibleOperations.sample_from(
-            elements=data.index.to_list(), how_many=self.row_fraction * data.shape[0]
+            elements=data.index.to_list(), how_many=int(max(self.row_fraction * data.shape[0], 1))
         )
 
-    def identify_columns_to_corrupt(self) -> None:
+    def identify_columns_to_corrupt(self, **kwargs) -> None:
         total_number_of_columns = len(self.numeric_columns + self.categorical_columns)
-        number_of_columns_to_corrupt = self.column_fraction * total_number_of_columns
+        number_of_columns_to_corrupt = int(max(self.column_fraction * total_number_of_columns, 1))
 
-        match self.dataErrorApplicability():
+        match self.data_error_applicability():
             case DataErrorApplicability.CATEGORICAL_ONLY:
                 self.columns_to_corrupt = ReproducibleOperations.sample_from(
                     elements=self.categorical_columns,
@@ -105,26 +111,29 @@ class DataError(ABC):
 
             case _ as not_implemented_category:
                 raise NotImplementedError(
-                    f"Unknown data error applicability type. Got {not_implemented_category}. \
-                        Valid options: {[option.value for option in DataErrorApplicability]}."
+                    f"Unknown data error applicability type. Got {not_implemented_category}. " +
+                    f"Valid options: {[option.value for option in DataErrorApplicability]}."
                 )
 
-    def corrupt(self, data: pd.DataFrame) -> Tuple[pd.DataFrame, List, List]:
+    def corrupt(self, data: pd.DataFrame, **kwargs) -> Tuple[pd.DataFrame, List, List]:
         # prepare for corruption
         self.corrupted_data = data.copy(deep=True)
-        self.find_numerical_categorical_columns()
-        self.identify_rows_to_corrupt(data)
-        self.identify_columns_to_corrupt()
-
-        # apply corruption; this is meant to be overriden for each specific data error type
-        self.corrupted_data = self._apply_corruption(
-            data_to_corrupt=self.corrupted_data,
-            rows_to_corrupt=self.rows_to_corrupt,
-            columns_to_corrupt=self.columns_to_corrupt,
-        )
+        self.find_numerical_categorical_columns(**kwargs)
+        self.identify_rows_to_corrupt(data, **kwargs)
+        self.identify_columns_to_corrupt(**kwargs)
+        
+        # columns_to_corrupt == [] can happen if e.g., a categorical error must be applied but no categorical cols exist
+        if self.columns_to_corrupt: 
+            # apply corruption; this is meant to be overriden for each specific data error type
+            self.corrupted_data = self._apply_corruption(
+                data_to_corrupt=self.corrupted_data,
+                rows_to_corrupt=self.rows_to_corrupt,
+                columns_to_corrupt=self.columns_to_corrupt,
+                **kwargs,
+            )
 
         # return tuple in a standardized way; single-point of change if needed
-        return self.corruption_result_output_tuple()
+        return self.corruption_result_output_tuple(**kwargs)
 
     @abstractmethod
     def _apply_corruption(
@@ -132,6 +141,7 @@ class DataError(ABC):
         data_to_corrupt: pd.DataFrame,
         rows_to_corrupt: List,
         columns_to_corrupt: List,
+        **kwargs,
     ) -> pd.DataFrame:
         """Apply the data corruption logic on the data to corrupt. The rows and columns
         to be corrupted are already provided as arguments. This function is meant to only
@@ -147,5 +157,5 @@ class DataError(ABC):
         """
         pass
 
-    def corruption_result_output_tuple(self) -> Tuple[pd.DataFrame, List, List]:
+    def corruption_result_output_tuple(self, **kwargs) -> Tuple[pd.DataFrame, List, List]:
         return self.corrupted_data, self.rows_to_corrupt, self.columns_to_corrupt

@@ -1,4 +1,6 @@
-from abc import ABC
+from abc import ABC, abstractmethod
+
+from synqtab.data import Dataset
 
 
 class EvaluationResult():
@@ -16,6 +18,17 @@ class Evaluator(ABC):
     
     def __init__(self, params: dict):
         self.params = params
+    
+    @abstractmethod
+    def short_name(self) -> str:
+        pass
+    
+    @abstractmethod
+    def full_name(self) -> str:
+        pass
+    
+    def is_compatible_with(self, dataset: Dataset) -> bool:
+        return True
 
     def evaluate(self) -> dict:
         self.prepare_evaluation(self.params)

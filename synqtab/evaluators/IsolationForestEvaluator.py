@@ -1,4 +1,3 @@
-from synqtab.reproducibility.ReproducibleOperations import ReproducibleOperations
 from synqtab.evaluators.Evaluator import Evaluator
 
 
@@ -13,8 +12,17 @@ class IsolationForestEvaluator(Evaluator):
         - [*optional*] `'notes'`: True/False on whether to include notes in the result or not.
         If absent, defaults to False.
     """
-        
+    
+    def short_name(self):
+        from synqtab.enums import EvaluationMethod
+        return str(EvaluationMethod.IFO)
+    
+    def full_name(self):
+        return "Isolation Forest Outlier Detection"
+
     def compute_result(self):
+        from synqtab.reproducibility import ReproducibleOperations
+        
         data = self.params.get('data')
         iso_forest = ReproducibleOperations.get_isolation_forest_model(
             n_estimators=self.params.get('n_estimators', 100),

@@ -1,8 +1,4 @@
 from typing import List, Optional, Tuple
-import numpy as np
-import pandas as pd
-    
-from synqtab.reproducibility import ReproducibilityError
 
 
 class Singleton(type):
@@ -20,7 +16,11 @@ class _RandomSeedOperations:
 
 class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
 
+    @classmethod
     def _ensure_reproducibility(self) -> None:
+        import numpy as np
+        from synqtab.reproducibility import ReproducibilityError
+        
         if self._random_seed:
             np.random.seed(self._random_seed)
             return
@@ -30,8 +30,12 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         )
 
     @classmethod
-    def set_random_seed(self, random_seed: int | float):
-        self._random_seed = random_seed
+    def set_random_seed(cls, random_seed: int | float):
+        cls._random_seed = random_seed
+
+    @classmethod
+    def get_current_random_seed(cls) -> int:
+        return cls._random_seed
 
     @classmethod
     def sample_from(
@@ -54,6 +58,10 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         Returns:
             List: the sampled items
         """
+        if not elements:
+            return []
+        
+        import numpy as np
         cls._ensure_reproducibility()
         return np.random.choice(
             a=elements,
@@ -68,6 +76,8 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         """Wraps a call to `np.random.uniform` for reproducibility purposes. For more info
         see https://numpy.org/devdocs/reference/random/generated/numpy.random.uniform.html.
         """
+        import numpy as np
+        
         cls._ensure_reproducibility()
         return np.random.uniform(low=low, high=high, size=size)
 
@@ -76,6 +86,8 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         """Wraps a call to `np.random.normal` for reproducibility purposes. For more info
         see https://numpy.org/devdocs/reference/random/generated/numpy.random.normal.html.
         """
+        import numpy as np
+        
         cls._ensure_reproducibility()
         return np.random.normal(loc=loc, scale=scale, size=size)
     
@@ -84,11 +96,13 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         """Wraps a call to `np.random.permutation` for reproducibility purposes. For more info
         see https://numpy.org/devdocs/reference/random/generated/numpy.random.permutation.html.
         """
+        import numpy as np
+        
         cls._ensure_reproducibility()
         return np.random.permutation(x=x)
     
     @classmethod
-    def shuffle_reindex_dataframe(cls, df: pd.DataFrame) -> pd.DataFrame:
+    def shuffle_reindex_dataframe(cls, df):
         """Shuffles a dataframe and resets its index.
 
         Args:
@@ -118,6 +132,7 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
             list: The splitting as returned by sklearn's implementation. 2 * len(arrays) arrays.
         """
         from sklearn.model_selection import train_test_split
+        
         return train_test_split(
             arrays,
             test_size=test_size,
@@ -159,25 +174,37 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
             sklearn.ensemble.RandomForestRegressor: an RandomForestRegressor model pre-initialized with the appropriate random seed.
         """
         from sklearn.ensemble import RandomForestRegressor
+        
         return RandomForestRegressor(
             n_estimators=n_estimators,
             random_state=cls._random_seed,
             n_jobs=-1
         )
     
-    @staticmethod
+    @classmethod
     def get_tabpfn_classifier_model(cls):
         from tabpfn_extensions import TabPFNClassifier
+        
         return TabPFNClassifier(random_state=cls._random_seed)
     
-    @staticmethod
+    @classmethod
     def get_tabpfn_regression_model(cls):
         from tabpfn_extensions import TabPFNRegressor
+        
         return TabPFNRegressor(random_state=cls._random_seed)
     
-    @staticmethod
+    @classmethod
+    def get_tabebm_model(cls):
+        from tabpfn_extensions.tabebm.tabebm import TabEBM, seed_everything
+        
+        cls._ensure_reproducibility()
+        seed_everything(cls._random_seed)
+        return TabEBM()
+    
+    @classmethod
     def get_realtabformer_model(cls, model_type='tabular', gradient_accumulation_steps=4, logging_steps=100):
         from realtabformer import REaLTabFormer
+        
         return REaLTabFormer(
             model_type=model_type,
             gradient_accumulation_steps=gradient_accumulation_steps,

@@ -1,7 +1,7 @@
 from enum import Enum
 import pandas as pd
 
-from synqtab.datasets import Dataset
+from synqtab.datasets import Dataset  #TODO MIGRATE TO DATA.DATASET
 from synqtab.evaluators.Evaluator import Evaluator
 
 
@@ -23,6 +23,13 @@ class MLEfficacy(Evaluator):
         
         **This evaluator does not support additional details as _notes_.**
     """
+    
+    def short_name(self):
+        from synqtab.enums import EvaluationMethod
+        return str(EvaluationMethod.EFF)
+    
+    def full_name(self):
+        return "ML Efficacy"
         
     def _find_classification_type(self, data: pd.DataFrame, target_column: str) -> str:
         unique_values = data[target_column].nunique()
