@@ -13,6 +13,9 @@ class LabelError(CategoricalShift):
         from synqtab.enums import DataErrorType
         
         return DataErrorType.LABEL_ERROR
+    
+    def full_name(self):
+        return "Label error"
 
     def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         from synqtab.enums.data import Metadata

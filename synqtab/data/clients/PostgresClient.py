@@ -226,3 +226,34 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
         except Exception as e:
             LOG.error(f"Failed to check existence of experiment {experiment_id}. Error: {e}")
             raise
+        
+    @classmethod
+    def evaluation_exists(
+        cls,
+        evaluation_id: str,
+        experiment_id: str, 
+        evaluations_table_name: str = 'evaluations',
+    ) -> bool:
+        """Checks if an experiment with the specific experiment id exists.
+
+        Args:
+            experiment_id (str): The experiment id to check for existence.
+
+        Returns:
+            bool: True if it exists, else False.
+        """
+        from sqlalchemy import text
+        try:
+            query = text(f"""
+                SELECT 1 FROM {evaluations_table_name} \
+                WHERE evaluation_id = :evaluation_id AND experiment_id = :experiment_id \
+                LIMIT 1 
+            """)
+            with cls._engine.connect() as connection:
+                result = connection.execute(query, {"experiment_id": experiment_id, "evaluation_id": evaluation_id})
+                exists = result.scalar() is not None
+                LOG.info(f"Checked existence of evaluation {evaluation_id} for experiment {experiment_id}: {exists}")
+                return exists 
+        except Exception as e:
+            LOG.error(f"Failed to check existence of evaluation {evaluation_id} for experiment {experiment_id}. Error: {e}")
+            raise

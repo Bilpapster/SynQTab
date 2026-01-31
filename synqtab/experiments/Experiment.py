@@ -19,7 +19,6 @@ class Experiment(ABC):
     
     _delimiter: str = '#'
     _NULL: str = 'NULL'
-    translator: str
 
     def __init__(
         self,
@@ -127,7 +126,7 @@ class Experiment(ABC):
         self._run()
         return self
     
-    def populate_tasks(self) -> Self:
+    def publish_tasks(self) -> Self:
         if not self._should_compute:
             LOG.info(f"Populating tasks for experiment {str(self)} will be skipped because the experiment already exists in Postgres.")
             return self
@@ -135,24 +134,40 @@ class Experiment(ABC):
         # TODO FIND A WAY TO POPULATE THE PARAMS AS THE SDMETRICS ARE EXPECTING TO GET THESE
         params = dict()
         
-        from synqtab.data import MinioClient
         from synqtab.enums import SINGULAR_EVALUATORS, DUAL_EVALUATORS
-        from synqtab.mappings import EVALUATION_METHOD_TO_EVALUATION_CLASS
+        from synqtab.evaluators import Evaluation
+        from synqtab.mappings import (
+            EVALUATION_METHOD_TO_EVALUATION_CLASS,
+            SINGULAR_EVALUATION_TARGETS, DUAL_EVALUATION_TARGETS
+        )
+        
+        published_tasks = 0
+        skipped_tasks = 0
         for evaluation_method in self.evaluators:
-            evaluator_instance = EVALUATION_METHOD_TO_EVALUATION_CLASS.get(evaluation_method)(params=params)
-            if evaluator_instance in SINGULAR_EVALUATORS:
-                # TODO POPULATE 4 TASKS, ONE FOR EACH OF THE TABLES see self._populate_task
-                pass # OR PROBABLY RETURN
             
-            if evaluator_instance in DUAL_EVALUATORS:
-                # TODO POPULATE 5 TASKS AS AGREED see self._populate_task
-                pass
+            evaluation_pairs = []
+            if evaluation_method in SINGULAR_EVALUATORS:
+                evaluation_pairs = SINGULAR_EVALUATION_TARGETS
+            elif evaluation_method in DUAL_EVALUATORS:
+                evaluation_pairs = DUAL_EVALUATION_TARGETS
+            else:
+                raise ValueError(f"Evaluation method {str(evaluation_method)} was not found in neither the singular nor dual evaluators.")
             
-        # TODO DO THE JOB HERE
+            for evaluation_pair in evaluation_pairs:
+                evaluation = Evaluation(
+                    *evaluation_pair,
+                    experiment=self,
+                    evaluation_method=evaluation_method,
+                )
+                was_published = evaluation.publish_task_if_valid()
+                if was_published:
+                    published_tasks += 1
+                else:
+                    # can happen if the evaluation is not valid, e.g., R2 evaluation on classification dataset
+                    skipped_tasks += 1
+                
+        LOG.info(f"Successfully published {published_tasks} and skipped {skipped_tasks} tasks for experiment {str(self)}")        
         return self
-    
-    def _populate_task(self) -> None:
-        pass
 
     def _exists_in_postgres(self) -> bool:
         from synqtab.data import PostgresClient

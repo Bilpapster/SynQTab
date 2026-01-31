@@ -51,7 +51,8 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
             raise
         
     @classmethod
-    def ensure_bucket_exists(cls, bucket_name: str) -> None:
+    def ensure_bucket_exists(cls, bucket_name: str | MinioBucket) -> None:
+        bucket_name = str(bucket_name)
         try:
             cls._client.head_bucket(Bucket=bucket_name)
             LOG.info(f"Bucket '{bucket_name}' exists and is accessible.")
@@ -65,7 +66,8 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
                 raise
     
     @classmethod
-    def list_bucket_objects(cls, bucket_name: str, prefix: str = "") -> list[dict[str, Any]]:
+    def list_bucket_objects(cls, bucket_name: str | MinioBucket, prefix: str = "") -> list[dict[str, Any]]:
+        bucket_name = str(bucket_name)
         try:
             response = cls._client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
             contents = response.get("Contents", [])
@@ -79,11 +81,12 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
     def list_files_in_bucket_by_file_extension(
         cls,
         file_extension: str,
-        bucket_name: str,
+        bucket_name: str | MinioBucket,
         prefix: str="",
         include_extension: bool=False,
         txt_output_file: Optional[str]=None,
     ):
+        bucket_name = str(bucket_name)
         objects = cls.list_bucket_objects(bucket_name=bucket_name, prefix=prefix)
         relevant_files = [
             os.path.splitext(os.path.basename(obj['Key']))[0]
@@ -107,7 +110,8 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
         return relevant_files
     
     @classmethod
-    def delete_file_from_bucket(cls, bucket_name: str, object_key: str) -> None:
+    def delete_file_from_bucket(cls, bucket_name: str | MinioBucket, object_key: str) -> None:
+        bucket_name = str(bucket_name)
         try:
             cls._client.delete_object(Bucket=bucket_name, Key=object_key)
             LOG.info(f"Successfully deleted file '{object_key}' from bucket '{bucket_name}'")
@@ -120,8 +124,9 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
     
     @classmethod
     def upload_file_to_bucket(
-        cls, local_file_path: str, bucket_name: str, object_name: Optional[str]
+        cls, local_file_path: str, bucket_name: str | MinioBucket, object_name: Optional[str]
     ) -> None:
+        bucket_name = str(bucket_name)
         local_file_path = str(local_file_path)
         if not object_name:
             object_name = os.path.basename(local_file_path)
@@ -141,8 +146,9 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
         
     @classmethod
     def download_file_from_bucket(
-        cls, bucket_name: str, object_name: str, local_file_path: str
+        cls, bucket_name: str | MinioBucket, object_name: str, local_file_path: str
     ) -> None:
+        bucket_name = str(bucket_name)
         try:
             os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
             cls._client.download_file(bucket_name, object_name, local_file_path)
@@ -153,8 +159,9 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
         
     @classmethod
     def read_parquet_from_bucket(
-        cls, bucket_name: str, object_name: str, **pandas_kwargs
+        cls, bucket_name: str | MinioBucket, object_name: str, **pandas_kwargs
     ) -> pd.DataFrame:
+        bucket_name = str(bucket_name)
         try:
             response = cls._client.get_object(Bucket=bucket_name, Key=object_name)
             df = pd.read_parquet(io.BytesIO(response['Body'].read()), **pandas_kwargs)
@@ -166,8 +173,9 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
 
     @classmethod
     def read_yaml_from_bucket(
-        cls, bucket_name: str, object_name: str, **yaml_kwargs
+        cls, bucket_name: str | MinioBucket, object_name: str, **yaml_kwargs
     ) -> dict[str, Any]:
+        bucket_name = str(bucket_name)
         try:
             response = cls._client.get_object(Bucket=bucket_name, Key=object_name)
             content = response['Body'].read().decode('utf-8')
@@ -180,8 +188,9 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
 
     @classmethod
     def upload_json_to_bucket(
-        cls, data: dict[str, Any], bucket_name: str, folder: Optional[str], file_name: str,
+        cls, data: dict[str, Any], bucket_name: str | MinioBucket, folder: Optional[str], file_name: str,
     ) -> None:
+        bucket_name = str(bucket_name)
         cls.ensure_bucket_exists(bucket_name=bucket_name)
         object_key = f"{folder}/{file_name}" if folder else file_name
 
@@ -206,6 +215,7 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
         object_name: str,
     ) -> None:
         temp_file_path = None
+        bucket_name = str(bucket_name)
         try:
             import tempfile
             with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
@@ -213,7 +223,7 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
                 temp_file_path = tmp.name
                 MinioClient.upload_file_to_bucket(
                     local_file_path=temp_file_path,
-                    bucket_name=str(bucket_name),
+                    bucket_name=bucket_name,
                     object_name=object_name,
                 )
         finally:

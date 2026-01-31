@@ -1,6 +1,7 @@
 from synqtab.enums import (
     DataErrorType, ExperimentType,
-    GeneratorModel, EvaluationMethod, 
+    GeneratorModel, EvaluationMethod,
+    EvaluationTarget
 )
 from synqtab.errors import (
     DataError, CategoricalShift, GaussianNoise, LabelError,
@@ -77,3 +78,18 @@ EVALUATION_METHOD_TO_EVALUATION_CLASS: dict[EvaluationMethod, Evaluator.__class_
     EvaluationMethod.EFF: MLEfficacy,
     EvaluationMethod.QLT: QualityEvaluator,
 }
+
+SINGULAR_EVALUATION_TARGETS: list[tuple[EvaluationTarget]] = [
+    (EvaluationTarget.R,), # each one is a tuple for consistent handling with dual evaluation targets
+    (EvaluationTarget.RH,),
+    (EvaluationTarget.S,),
+    (EvaluationTarget.SH,),
+]
+
+DUAL_EVALUATION_TARGETS: list[tuple[EvaluationTarget]] = [
+    (EvaluationTarget.R, EvaluationTarget.S),
+    (EvaluationTarget.RH, EvaluationTarget.SH),
+    (EvaluationTarget.R, EvaluationTarget.RH),
+    (EvaluationTarget.S, EvaluationTarget.SH),
+    (EvaluationTarget.S, EvaluationTarget.SH),
+]

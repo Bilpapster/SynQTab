@@ -14,7 +14,7 @@ class NormalExperiment(Experiment):
     
     def _run(self) -> None:
         from synqtab.data import PostgresClient, MinioClient
-        from synqtab.enums import MinioBucket, ProblemType
+        from synqtab.enums import MinioBucket, ProblemType, DataPerfectness
         from synqtab.environment import MAX_TRAINING_ROWS
         from synqtab.mappings.mappings import GENERATOR_MODEL_TO_GENERATOR_INSTANCE
         from synqtab.reproducibility import ReproducibleOperations
@@ -38,7 +38,7 @@ class NormalExperiment(Experiment):
         corrupted_rows = corrupted_cols = []
         if self.data_error:
             if self.data_error_rate:
-                data_error_instance =  self.data_error.get_class()(row_fraction=self.data_error_rate)
+                data_error_instance = self.data_error.get_class()(row_fraction=self.data_error_rate)
                 training_df, corrupted_rows, corrupted_cols = data_error_instance.corrupt(training_df)
                 LOG.info(f"Data Corruption was completed successfully for experiment {str(self)}")
                 
@@ -47,6 +47,9 @@ class NormalExperiment(Experiment):
                     LOG.info(f"Experiment {str(self)} will be skipped, because no columns to corrupt were found.")
                     PostgresClient.write_skipped_computation(computation_id=str(self), reason="No columns to corrupt.")
                     return
+
+                if self.data_perfectness == DataPerfectness.SEMIPERFECT:
+                  training_df.drop(corrupted_rows)
         
         LOG.info(f"Initializing {self.generator} generator for experiment {str(self)}")
         y = training_df[target_column_name]

@@ -15,6 +15,9 @@ class Outliers(DataError):
         from synqtab.enums import DataErrorType
         
         return str(DataErrorType.OUTLIER)
+    
+    def full_name(self):
+        return "Outlier"
 
     def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         from synqtab.reproducibility import ReproducibleOperations

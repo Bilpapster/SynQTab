@@ -5,6 +5,7 @@ Contains classes for evaluating synthetic data quality and statistical propertie
 from .DCREvaluator import DCREvaluator
 from .DesbordanteFDs import DesbordanteFDs
 from .DisclosureProtectionEvaluator import DisclosureProtectionEvaluator
+from .Evaluation import Evaluation
 from .Evaluator import Evaluator
 from .HyFD import HyFD
 from .IsolationForestEvaluator import IsolationForestEvaluator
@@ -20,6 +21,7 @@ __all__ = [
     'DCREvaluator',
     'DesbordanteFDs',
     'DisclosureProtectionEvaluator',
+    'Evaluation',
     'Evaluator',
     'HyFD',
     'IsolationForestEvaluator',

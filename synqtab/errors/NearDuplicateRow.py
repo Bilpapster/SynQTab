@@ -8,6 +8,14 @@ class NearDuplicateRow(Inconsistency):
         
         return DataErrorApplicability.ANY_COLUMN
     
+    def short_name(self):
+        from synqtab.enums import DataErrorType
+        
+        return str(DataErrorType.NEAR_DUPLICATE)
+    
+    def full_name(self):
+        return "Near Duplicate rows"
+    
     def _apply_corruption_to_numeric_column(
         self, data_to_corrupt, rows_to_corrupt, numeric_column_to_corrupt, **kwargs
     ):

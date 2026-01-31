@@ -12,6 +12,9 @@ class Inconsistency(DataError):
         from synqtab.enums import DataErrorType
         
         return str(DataErrorType.INCONSISTENCY)
+    
+    def full_name(self):
+        return "Representational Inconsistencies"
 
     def _apply_typo(self, categorical_value: str) -> str:
         """Applies a typo to a string value. Randomly (yet reproducibly)

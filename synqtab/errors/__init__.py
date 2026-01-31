@@ -6,6 +6,7 @@ from .LabelError import LabelError
 from .NearDuplicateRow import NearDuplicateRow
 from .Outlier import Outliers
 from .Placeholder import Placeholder
+from .DataErrorApplicability import DataErrorApplicability
 
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     'LabelError',
     'NearDuplicateRow',
     'Outliers',
-    'Placeholder'
+    'Placeholder',
+    'DataErrorApplicability'
 ]
