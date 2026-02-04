@@ -12,10 +12,10 @@ class LofEvaluator(Evaluator):
         - [*optional*] `'notes'`: True/False on whether to include notes in the result or not.
         If absent, defaults to False.
     """
-    def __init__(self, n_neighbors=5, contamination='auto', notes: bool = True ):
-        self.n_neighbors = n_neighbors
-        self.contamination = contamination
-        self.notes = notes
+    def __init__(self, params):
+        self.n_neighbors = 5
+        self.contamination = 'auto'
+        self.notes = params.get('notes')
         
     def short_name(self):
         from synqtab.enums import EvaluationMethod

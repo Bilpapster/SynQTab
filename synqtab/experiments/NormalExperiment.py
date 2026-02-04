@@ -42,9 +42,10 @@ class NormalExperiment(Experiment):
                 training_df, corrupted_rows, corrupted_cols = data_error_instance.corrupt(training_df)
                 LOG.info(f"Data Corruption was completed successfully for experiment {str(self)}")
                 
-                if not corrupted_cols:
+                if len(corrupted_cols) > 0:
                     from synqtab.data import PostgresClient
                     LOG.info(f"Experiment {str(self)} will be skipped, because no columns to corrupt were found.")
+                    self._should_compute = False
                     PostgresClient.write_skipped_computation(computation_id=str(self), reason="No columns to corrupt.")
                     return
 

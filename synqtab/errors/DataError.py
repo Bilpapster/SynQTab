@@ -123,7 +123,7 @@ class DataError(ABC):
         self.identify_columns_to_corrupt(**kwargs)
         
         # columns_to_corrupt == [] can happen if e.g., a categorical error must be applied but no categorical cols exist
-        if self.columns_to_corrupt: 
+        if len(self.columns_to_corrupt) > 0:
             # apply corruption; this is meant to be overriden for each specific data error type
             self.corrupted_data = self._apply_corruption(
                 data_to_corrupt=self.corrupted_data,

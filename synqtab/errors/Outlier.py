@@ -23,7 +23,10 @@ class Outliers(DataError):
         from synqtab.reproducibility import ReproducibleOperations
         
         for column_to_corrupt in columns_to_corrupt:
-            scale_factor = ReproducibleOperations.sample_from(self.SCALE_FACTORS)
+            scale_factor = ReproducibleOperations.sample_from(
+                elements=self.SCALE_FACTORS,
+                how_many=1,
+            )
             data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] *= scale_factor
 
         return data_to_corrupt
