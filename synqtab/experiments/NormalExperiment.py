@@ -1,3 +1,5 @@
+from typing import Self
+
 from synqtab.experiments.Experiment import Experiment
 from synqtab.utils import get_logger
 
@@ -33,18 +35,24 @@ class NormalExperiment(Experiment):
             from synqtab.data import PostgresClient
             LOG.info(f"Experiment {str(self)} will be skipped, because the dataset has f{len(training_df)} rows.")
             PostgresClient.write_skipped_computation(computation_id=str(self), reason=f"More than {MAX_TRAINING_ROWS} rows ({len(training_df)}).")
+            self._should_compute = False
             return
         
         corrupted_rows = corrupted_cols = []
         if self.data_error:
             if self.data_error_rate:
                 data_error_instance = self.data_error.get_class()(row_fraction=self.data_error_rate)
-                training_df, corrupted_rows, corrupted_cols = data_error_instance.corrupt(training_df)
+                training_df, corrupted_rows, corrupted_cols = data_error_instance.corrupt(
+                    data=training_df,
+                    categorical_columns=self.dataset.categorcal_features,
+                    target_column=self.dataset.target_feature,
+                )
                 LOG.info(f"Data Corruption was completed successfully for experiment {str(self)}")
                 
-                if len(corrupted_cols) > 0:
+                if len(corrupted_cols) == 0:
                     from synqtab.data import PostgresClient
                     LOG.info(f"Experiment {str(self)} will be skipped, because no columns to corrupt were found.")
+                    LOG.info(f"Experiment {str(self)}. Categorical: {self.dataset.categorcal_features}, All: {training_df.columns}, Error Applicability: {data_error_instance.data_error_applicability()}.")
                     self._should_compute = False
                     PostgresClient.write_skipped_computation(computation_id=str(self), reason="No columns to corrupt.")
                     return
@@ -77,6 +85,8 @@ class NormalExperiment(Experiment):
         LOG.info(f"Successfully wrote the synthetic data of experiment {str(self)} to MinIO '{self.minio_path()}'.")
         
         # Action 2: Write experiment metadata to Postgres for offline analysis
+        import json
+
         PostgresClient.write_experiment(
             experiment_id=str(self),
             experiment_type=self.short_name(),
@@ -88,8 +98,48 @@ class NormalExperiment(Experiment):
             generator=str(self.generator),
             training_size=str(len(X)),
             synthetic_size=str(len(synthetic_df)),
-            corrupted_rows=corrupted_rows,
-            corrupted_cols=corrupted_cols,
+            corrupted_rows=json.dumps(corrupted_rows.tolist()),
+            corrupted_cols=json.dumps(corrupted_cols.tolist()),
             execution_time=elapsed_time,
         )
         LOG.info(f"Successfully wrote the metadata of experiment {str(self)} to Postgres.")
+
+
+    def _publish_tasks(self) -> Self:
+        # TODO FIND A WAY TO POPULATE THE PARAMS AS THE SDMETRICS ARE EXPECTING TO GET THESE
+        params = dict()
+        
+        from synqtab.enums import SINGULAR_EVALUATORS, DUAL_EVALUATORS
+        from synqtab.evaluators import Evaluation
+        from synqtab.mappings import (
+            EVALUATION_METHOD_TO_EVALUATION_CLASS,
+            SINGULAR_EVALUATION_TARGETS, DUAL_EVALUATION_TARGETS
+        )
+        
+        published_tasks = 0
+        skipped_tasks = 0
+        for evaluation_method in self.evaluators:
+            
+            evaluation_pairs = []
+            if evaluation_method in SINGULAR_EVALUATORS:
+                evaluation_pairs = SINGULAR_EVALUATION_TARGETS
+            elif evaluation_method in DUAL_EVALUATORS:
+                evaluation_pairs = DUAL_EVALUATION_TARGETS
+            else:
+                raise ValueError(f"Evaluation method {str(evaluation_method)} was not found in neither the singular nor dual evaluators.")
+            
+            for evaluation_pair in evaluation_pairs:
+                evaluation = Evaluation(
+                    *evaluation_pair,
+                    experiment=self,
+                    evaluation_method=evaluation_method,
+                )
+                was_published = evaluation.publish_task_if_valid()
+                if was_published:
+                    published_tasks += 1
+                else:
+                    # can happen if the evaluation is not valid, e.g., R2 evaluation on classification dataset
+                    skipped_tasks += 1
+                
+        LOG.info(f"Successfully published {published_tasks} and skipped {skipped_tasks} tasks for experiment {str(self)}")        
+        return self

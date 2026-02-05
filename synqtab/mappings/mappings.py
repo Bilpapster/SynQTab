@@ -5,7 +5,7 @@ from synqtab.enums import (
 )
 from synqtab.errors import (
     DataError, CategoricalShift, GaussianNoise, LabelError,
-    Placeholder, NearDuplicateRow, Outliers, Inconsistency
+    Placeholder, NearDuplicateRow, Outlier, Inconsistency
 )
 from synqtab.evaluators import (
     Evaluator, DCREvaluator, DesbordanteFDs,
@@ -30,7 +30,7 @@ DATA_ERROR_TYPE_TO_DATA_ERROR_CLASS: dict[DataErrorType, DataError.__class__] = 
     DataErrorType.INCONSISTENCY: Inconsistency,
     DataErrorType.LABEL_ERROR: LabelError,
     DataErrorType.NEAR_DUPLICATE: NearDuplicateRow,
-    DataErrorType.OUTLIER: Outliers,
+    DataErrorType.OUTLIER: Outlier,
     DataErrorType.PLACEHOLDER: Placeholder,
 }
 
@@ -91,5 +91,5 @@ DUAL_EVALUATION_TARGETS: list[tuple[EvaluationTarget]] = [
     (EvaluationTarget.RH, EvaluationTarget.SH),
     (EvaluationTarget.R, EvaluationTarget.RH),
     (EvaluationTarget.S, EvaluationTarget.SH),
-    (EvaluationTarget.S, EvaluationTarget.SH),
+    (EvaluationTarget.R, EvaluationTarget.SH),
 ]

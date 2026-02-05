@@ -25,11 +25,14 @@ class Placeholder(DataError):
     # https://github.com/schelterlabs/jenga/blob/a8bd74a588176e64183432a0124553c774adb20d/src/jenga/corruptions/generic.py#L26
     def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):
         for column_to_corrupt in columns_to_corrupt:
-            missing_value = (
-                self.CATEGORICAL_MISSING_VALUE
-                if column_to_corrupt in self.categorical_columns
-                else self.NUMERIC_MISSING_VALUE
-            )
-            data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] = missing_value
+            if column_to_corrupt in self.numeric_columns:
+                data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] = self.NUMERIC_MISSING_VALUE
+                continue
+            
+            #else if column to corrupt is categorical, transform to object, pollute and transform back to category
+            data_to_corrupt[column_to_corrupt] = data_to_corrupt[column_to_corrupt].astype('object')
+            data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] = self.CATEGORICAL_MISSING_VALUE
+            data_to_corrupt[column_to_corrupt] = data_to_corrupt[column_to_corrupt].astype('category')
+            
 
         return data_to_corrupt

@@ -52,12 +52,15 @@ class DataErrorType(EasilyStringifyableEnum):
             case DataErrorType.INCONSISTENCY:
                 from synqtab.errors import Inconsistency
                 return Inconsistency
+            case DataErrorType.LABEL_ERROR:
+                from synqtab.errors import LabelError
+                return LabelError
             case DataErrorType.NEAR_DUPLICATE:
                 from synqtab.errors import NearDuplicateRow
                 return NearDuplicateRow
             case DataErrorType.OUTLIER:
-                from synqtab.errors import Outliers
-                return Outliers
+                from synqtab.errors import Outlier
+                return Outlier
             case DataErrorType.PLACEHOLDER:
                 from synqtab.errors import Placeholder
                 return Placeholder

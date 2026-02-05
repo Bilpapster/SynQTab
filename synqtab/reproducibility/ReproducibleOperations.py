@@ -59,6 +59,9 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         """
         if not elements:
             return []
+
+        if len(elements) <= how_many:
+            return elements
         
         import numpy as np
         cls._ensure_reproducibility()
@@ -91,15 +94,31 @@ class ReproducibleOperations(_RandomSeedOperations, metaclass=Singleton):
         return np.random.normal(loc=loc, scale=scale, size=size)
     
     @classmethod
-    def permutation(cls, x):
+    def derangement(cls, x):
         """Wraps a call to `np.random.permutation` for reproducibility purposes. For more info
         see https://numpy.org/devdocs/reference/random/generated/numpy.random.permutation.html.
+        The function returns a **derangement**, i.e., there is no element that remains in its
+        original position. This is performed by generating consecutive permutations with the same
+        random seed, until the first derangement is found and returned.
         """
-        import numpy as np
+        if len(x) == 1:
+            return x
         
+        import numpy as np
         cls._ensure_reproducibility()
-        return np.random.permutation(x=x)
-    
+        
+        while True:
+            permutation = np.random.permutation(x=x)
+            
+            permutation_is_a_derangement = True
+            for original_element, permuted_element in zip(x, permutation):
+                if original_element == permuted_element:
+                    permutation_is_a_derangement = False
+                    break
+            
+            if permutation_is_a_derangement:
+                return permutation
+
     @classmethod
     def shuffle_reindex_dataframe(cls, df):
         """Shuffles a dataframe and resets its index.

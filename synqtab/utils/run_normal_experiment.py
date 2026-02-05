@@ -50,32 +50,32 @@ for random_seed in experimental_params.get('random_seeds'):
             for error in experimental_params.get('error_types'):
                 for error_rate in experimental_params.get('error_rates'):
                     for perfectness_level in experimental_params.get('data_perfectness_levels'):
-                        # try:
-                        if perfectness_level == DataPerfectness.SEMIPERFECT and error_rate != 0.4:
-                            # We investigate the cleaning dilemma only for 0.4 error rate
-                            continue
+                        try:
+                            if perfectness_level == DataPerfectness.SEMIPERFECT and error_rate != 0.4:
+                                # We investigate the cleaning dilemma only for 0.4 error rate
+                                continue
 
-                        if perfectness_level == DataPerfectness.SEMIPERFECT and error == DataErrorType.NEAR_DUPLICATE:
-                            # Semi-perfect for near duplicates is the same as perfect, no need to compute
-                            continue
-                        
-                        if dataset.problem_type == str(ProblemType.REGRESSION):
-                            # Temporarily exclude regression datasets until we bug bash the pd.cut in ReproducibleOperations.py L162
-                            continue
-
-                        normal_experiment = NormalExperiment(
-                            dataset=dataset,
-                            generator=model,
-                            data_error_type=error,
-                            data_error_rate=error_rate,
-                            data_perfectness=perfectness_level,
-                            evaluation_methods=experimental_params.get('evaluation_methods'),
-                        )
-                        normal_experiment.run().publish_tasks()
+                            if perfectness_level == DataPerfectness.SEMIPERFECT and error == DataErrorType.NEAR_DUPLICATE:
+                                # Semi-perfect for near duplicates is the same as perfect, no need to compute
+                                continue
                             
-                        # except Exception as e:
-                        #     LOG.error(
-                        #         f"The experiment failed but I will continue to the next one. Error: {e}",
-                        #         extra={'experiment_id': str(normal_experiment)}
-                        #     )
-                        #     continue
+                            if dataset.problem_type == str(ProblemType.REGRESSION):
+                                # Temporarily exclude regression datasets until we bug bash the pd.cut in ReproducibleOperations.py L162
+                                continue
+
+                            normal_experiment = NormalExperiment(
+                                dataset=dataset,
+                                generator=model,
+                                data_error_type=error,
+                                data_error_rate=error_rate,
+                                data_perfectness=perfectness_level,
+                                evaluation_methods=experimental_params.get('evaluation_methods'),
+                            )
+                            normal_experiment.run().publish_tasks()
+                            
+                        except Exception as e:
+                            LOG.error(
+                                f"The experiment failed but I will continue to the next one. Error: {e}",
+                                extra={'experiment_id': str(normal_experiment)}
+                            )
+                            continue

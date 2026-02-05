@@ -93,10 +93,18 @@ class Dataset:
             MinioFolder.DATA,
             f"{self.dataset_name}.parquet"
         )
-        return MinioClient.read_parquet_from_bucket(
+
+        df = MinioClient.read_parquet_from_bucket(
             bucket_name=bucket_name,
             object_name=object_name
         )
+
+        # ensure that the categorical columns are explicitly declared in the pd DataFrame
+        for column in self.categorcal_features:
+            if column in df.columns:
+                df[column] = df[column].astype('category')
+
+        return df
     
     def _prepare_data_for_experiment(
         self,

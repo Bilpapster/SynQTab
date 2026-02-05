@@ -44,8 +44,6 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
         field_names_list = list(query_params.keys())
         value_indicators_list = [':' + field_name for field_name in field_names_list]
         
-        print(query_params)
-        
         field_names = ', '.join(field_names_list)
         value_indicators = ', '.join(value_indicators_list)
         

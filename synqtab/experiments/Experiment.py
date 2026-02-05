@@ -57,11 +57,15 @@ class Experiment(ABC):
         so you can freely assume that the experiment must run.
         """
         pass
-        
-    def even_if_exists(self) -> Self:
-        LOG.info(f"Experiment {str(self)} is set to be force-computed, even if it exists in Postgres.")
-        self._should_compute = True
-        return self
+    
+    @abstractmethod
+    def _publish_tasks(self) -> Self:
+        """
+        Perform the actual publishing of tasks and any writing operations to Postgres and/or MinIO.
+        All validations have been verified before reaching this function,
+        so you can freely assume that the publishing must be performed.
+        """
+        pass
     
     # IMPORTANT: Keep this method aligned with the from_str() method!
     def _get_experiment_id_parts(self):
@@ -131,43 +135,7 @@ class Experiment(ABC):
             LOG.info(f"Populating tasks for experiment {str(self)} will be skipped because the experiment already exists in Postgres.")
             return self
         
-        # TODO FIND A WAY TO POPULATE THE PARAMS AS THE SDMETRICS ARE EXPECTING TO GET THESE
-        params = dict()
-        
-        from synqtab.enums import SINGULAR_EVALUATORS, DUAL_EVALUATORS
-        from synqtab.evaluators import Evaluation
-        from synqtab.mappings import (
-            EVALUATION_METHOD_TO_EVALUATION_CLASS,
-            SINGULAR_EVALUATION_TARGETS, DUAL_EVALUATION_TARGETS
-        )
-        
-        published_tasks = 0
-        skipped_tasks = 0
-        for evaluation_method in self.evaluators:
-            
-            evaluation_pairs = []
-            if evaluation_method in SINGULAR_EVALUATORS:
-                evaluation_pairs = SINGULAR_EVALUATION_TARGETS
-            elif evaluation_method in DUAL_EVALUATORS:
-                evaluation_pairs = DUAL_EVALUATION_TARGETS
-            else:
-                raise ValueError(f"Evaluation method {str(evaluation_method)} was not found in neither the singular nor dual evaluators.")
-            
-            for evaluation_pair in evaluation_pairs:
-                evaluation = Evaluation(
-                    *evaluation_pair,
-                    experiment=self,
-                    evaluation_method=evaluation_method,
-                )
-                was_published = evaluation.publish_task_if_valid()
-                if was_published:
-                    published_tasks += 1
-                else:
-                    # can happen if the evaluation is not valid, e.g., R2 evaluation on classification dataset
-                    skipped_tasks += 1
-                
-        LOG.info(f"Successfully published {published_tasks} and skipped {skipped_tasks} tasks for experiment {str(self)}")        
-        return self
+        return self._publish_tasks()
 
     def _exists_in_postgres(self) -> bool:
         from synqtab.data import PostgresClient

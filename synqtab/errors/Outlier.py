@@ -2,7 +2,7 @@ from synqtab.errors import DataError
 
 
 # based on https://github.com/schelterlabs/jenga/blob/a8bd74a588176e64183432a0124553c774adb20d/src/jenga/corruptions/numerical.py#L29
-class Outliers(DataError):
+class Outlier(DataError):
 
     SCALE_FACTORS = [10, 100, 1000]  # TODO: Discuss internally
 
