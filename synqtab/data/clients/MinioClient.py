@@ -121,7 +121,51 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
             )
             raise
         
-    
+    @classmethod
+    def copy_file(
+        cls,
+        source_bucket_name: str | MinioBucket, source_prefix: str,
+        destination_bucket_name: str | MinioBucket, destination_prefix: str
+    ):
+        source_bucket_name = str(source_bucket_name)
+        destination_bucket_name = str(destination_bucket_name)
+        try:
+            copy_source = {
+                "Bucket": str(source_bucket_name),
+                "Key": str(source_prefix)
+            }
+            cls._client.copy(copy_source, destination_bucket_name, destination_prefix)
+            LOG.info(
+                f"Successfully copied '{source_bucket_name + '/' + source_prefix}'to '{destination_bucket_name + '/' + destination_prefix}'"
+            )
+        except (ClientError, NoCredentialsError) as e:
+            LOG.error(
+                f"Failed to copy '{source_bucket_name + '/' + source_prefix}'to '{destination_bucket_name + '/' + destination_prefix}'"
+            )
+            raise
+
+    @classmethod
+    def move_file(
+        cls,
+        source_bucket_name: str | MinioBucket, source_prefix: str,
+        destination_bucket_name: str | MinioBucket, destination_prefix: str
+    ) -> None:
+        source_bucket_name = str(source_bucket_name)
+        destination_bucket_name = str(destination_bucket_name)
+        try:
+            # First copy, then delete the source file
+            cls.ensure_bucket_exists(bucket_name=destination_bucket_name)
+            cls.copy_file(source_bucket_name, source_prefix, destination_bucket_name, destination_prefix)
+            cls.delete_file_from_bucket(bucket_name=source_bucket_name, object_key=source_prefix)
+            LOG.info(
+                f"Successfully moved '{source_bucket_name + '/' + source_prefix}'to '{destination_bucket_name + '/' + destination_prefix}'"
+            )
+        except (ClientError, NoCredentialsError) as e:
+            LOG.error(
+                f"Failed to move '{source_bucket_name + '/' + source_prefix}'to '{destination_bucket_name + '/' + destination_prefix}'"
+            )
+            raise
+
     @classmethod
     def upload_file_to_bucket(
         cls, local_file_path: str, bucket_name: str | MinioBucket, object_name: Optional[str]
@@ -184,6 +228,20 @@ class MinioClient(_MinioClient, metaclass=SingletonMinioClient):
             return data
         except (ClientError, NoCredentialsError):
             LOG.error(f"Failed to read YAML from bucket '{bucket_name}'.")
+            raise
+
+    @classmethod
+    def read_json_from_bucket(cls, bucket_name: str | MinioBucket, prefix: str) -> dict[Any]:
+        try:
+            bucket_name = str(bucket_name)
+            import json
+            response = cls._client.get_object(Bucket=bucket_name, Key=prefix)
+            content = response['Body'].read().decode('utf-8')
+            data = json.loads(content)
+            LOG.info(f"Loaded JSON from '{bucket_name}/{prefix}'.")
+            return data
+        except (ClientError, NoCredentialsError):
+            LOG.error(f"Failed to read JSON from bucket '{bucket_name}'.")
             raise
 
     @classmethod

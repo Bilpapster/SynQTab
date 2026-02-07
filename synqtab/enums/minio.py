@@ -6,6 +6,7 @@ class MinioBucket(EasilyStringifyableEnum):
     REAL = 'real'
     SYNTHETIC = 'synthetic'
     TASKS = 'tasks'
+    FINISHED_TASKS = 'finished-tasks'
 
 class MinioFolder(EasilyStringifyableEnum):
     PERFECT = 'perfect'
