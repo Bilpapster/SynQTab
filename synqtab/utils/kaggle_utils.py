@@ -35,7 +35,8 @@ def execute_single_script(
         title: str = "Kaggle Execution",
         enable_gpu: bool = False,
         enable_internet: bool = True,
-        is_private: bool = True
+        is_private: bool = True,
+        accelerator: str = "NvidiaTeslaT4"
 ):
     """
     Execute a Python script on Kaggle using the Kaggle Kernels API.
@@ -47,6 +48,7 @@ def execute_single_script(
         enable_gpu: Whether to enable GPU
         enable_internet: Whether to enable internet
         is_private: Whether the kernel should be private
+        accelerator: Accelerator ID (e.g., "NvidiaTeslaP100", "NvidiaTeslaT4", "TpuV6E8"), defaults to "NvidiaTeslaT4"
     """
     script_path = Path(script_path)
 
@@ -61,10 +63,10 @@ def execute_single_script(
         "code_file": script_path.name,
         "language": "python",
         "kernel_type": "notebook",
-        "is_private": is_private,
-        "enable_gpu": enable_gpu,
+        "is_private": str(is_private),
+        "enable_gpu": str(enable_gpu),
         "enable_tpu": "false",
-        "enable_internet": enable_internet,
+        "enable_internet": str(enable_internet),
         "dataset_sources": [],
         "competition_sources": [],
         "kernel_sources": [],
@@ -89,8 +91,14 @@ def execute_single_script(
     fix_notebook_metadata(temp_notebook_path)
 
     # 6. Push to Kaggle
+    push_command = ["kaggle", "kernels", "push", "-p", str(temp_dir)]
+    
+    # Add accelerator if specified
+    if accelerator:
+        push_command.extend(["--accelerator", accelerator])
+    
     result = subprocess.run(
-        ["kaggle", "kernels", "push", "-p", str(temp_dir)],
+        push_command,
         capture_output=True,
         text=True
     )
@@ -167,159 +175,6 @@ def get_kaggle_kernel_status(kernel_slug: str, username: str) -> dict:
     return status_info
 
 
-
-def run_kaggle_scripts_from_yaml(
-        yaml_path: str,
-        max_concurrent: int = 5,
-        max_retries: int = 3,
-        check_interval: int = 30
-):
-    """
-    Execute multiple Kaggle scripts concurrently based on YAML configuration.
-    DEPRECATED: Use run_kaggle_scripts_multi_profile for multi-profile support.
-
-    Args:
-        yaml_path: Path to YAML file with Kaggle settings
-        max_concurrent: Maximum number of concurrent executions (default: 5)
-        max_retries: Maximum retry attempts for failed scripts
-        check_interval: Seconds between status checks
-    """
-    # Load YAML configuration
-    with open(yaml_path, 'r') as f:
-        config = yaml.safe_load(f)
-
-    KAGGLE_USERNAME = os.getenv('KAGGLE_USERNAME')
-
-    # Extract settings
-    scripts = config.get('scripts', [])
-    username = config.get('username', KAGGLE_USERNAME)
-    title_prefix = config.get('title_prefix', 'Script')
-    enable_gpu = config.get('enable_gpu', True)
-    enable_internet = config.get('enable_internet', True)
-    is_private = config.get('is_private', True)
-
-    # Initialize jobs
-    jobs: Dict[str, KernelJob] = {}
-    for idx, script_path in enumerate(scripts):
-        kernel_slug = f"{title_prefix}-{idx}".lower().replace(' ', '-')
-        jobs[script_path] = KernelJob(
-            script_path=script_path,
-            kernel_slug=kernel_slug,
-            status=KernelStatus.PENDING
-        )
-
-    running: Set[str] = set()
-    completed: Set[str] = set()
-    failed: Set[str] = set()
-
-    def submit_job(script_path: str) -> bool:
-        """Submit a job to Kaggle. Returns True if successful."""
-        job = jobs[script_path]
-        try:
-            execute_single_script(
-                script_path=script_path,
-                username = username,
-                title=f"{job.kernel_slug}",
-                enable_gpu=enable_gpu,
-                enable_internet=enable_internet,
-                is_private=is_private
-            )
-            job.status = KernelStatus.RUNNING
-            running.add(script_path)
-            print(f"✓ Started: {script_path} (slug: {job.kernel_slug})")
-            return True
-        except Exception as e:
-            print(f"✗ Failed to submit {script_path}: {e}")
-            return False
-
-    def check_job_status(script_path: str) -> KernelStatus:
-        """Check status of a running job."""
-        job = jobs[script_path]
-        try:
-            status_info = get_kaggle_kernel_status(job.kernel_slug, username)
-
-            if status_info['is_complete']:
-                return KernelStatus.COMPLETE
-            elif status_info['has_error']:
-                return KernelStatus.FAILED
-            elif status_info['is_running']:
-                return KernelStatus.RUNNING
-            else:
-                return KernelStatus.PENDING
-        except Exception as e:
-            print(f"✗ Error checking status for {script_path}: {e}")
-            return KernelStatus.FAILED
-
-    # Main execution loop
-    while len(completed) + len(failed) < len(jobs):
-        # Check status of running jobs
-        for script_path in list(running):
-            job = jobs[script_path]
-            status = check_job_status(script_path)
-
-            if status == KernelStatus.COMPLETE:
-                job.status = KernelStatus.COMPLETE
-                running.remove(script_path)
-                completed.add(script_path)
-                print(f"✓ Completed: {script_path}")
-                notify_script_complete(script_path, job.kernel_slug)
-
-            elif status == KernelStatus.FAILED:
-                job.status = KernelStatus.FAILED
-                running.remove(script_path)
-
-                if job.retry_count < max_retries:
-                    job.retry_count += 1
-                    job.status = KernelStatus.PENDING
-                    print(f"⟳ Retry {job.retry_count}/{max_retries}: {script_path}")
-                    notify_script_failed(script_path, job.kernel_slug, job.retry_count, max_retries)
-                else:
-                    failed.add(script_path)
-                    print(f"✗ Failed permanently: {script_path}")
-                    notify_script_failed(script_path, job.kernel_slug, job.retry_count, max_retries)
-
-        # Submit new jobs if slots available
-        available_slots = max_concurrent - len(running)
-        if available_slots > 0:
-            pending_jobs = [
-                sp for sp, job in jobs.items()
-                if job.status == KernelStatus.PENDING and sp not in running
-            ]
-
-            for script_path in pending_jobs[:available_slots]:
-                submit_job(script_path)
-
-        # Wait before next check
-        if running:
-            time.sleep(check_interval)
-
-    # Summary
-    print(f"\n{'='*50}")
-    print(f"Execution Summary:")
-    print(f"Completed: {len(completed)}/{len(jobs)}")
-    print(f"Failed: {len(failed)}/{len(jobs)}")
-
-    if failed:
-        print(f"\nFailed scripts:")
-        for script_path in failed:
-            print(f"  - {script_path}")
-
-    notify_batch_summary(len(completed), len(failed), len(jobs), list(failed))
-
-    return {
-        'completed': list(completed),
-        'failed': list(failed),
-        'jobs': jobs
-    }
-
-# Example usage:
-# result = run_kaggle_scripts_from_yaml(
-#     yaml_path='../configs/kaggle_config.yaml',
-#     max_concurrent=2,
-#     max_retries=3,
-#     check_interval=10
-# )
-
 # MULTI-PROFILE SUPPORT
 @dataclass
 class ProfileJob:
@@ -383,6 +238,7 @@ def run_kaggle_scripts_multi_profile(
     enable_gpu = common_settings.get('enable_gpu', True)
     enable_internet = common_settings.get('enable_internet', True)
     is_private = common_settings.get('is_private', True)
+    accelerator = common_settings.get('accelerator', 'NvidiaTeslaT4')
 
     # Initialize jobs per profile
     all_jobs: Dict[str, ProfileJob] = {}
@@ -430,7 +286,8 @@ def run_kaggle_scripts_multi_profile(
                 title=f"{job.kernel_slug}",
                 enable_gpu=enable_gpu,
                 enable_internet=enable_internet,
-                is_private=is_private
+                is_private=is_private,
+                accelerator=accelerator
             )
 
             job.status = KernelStatus.RUNNING
