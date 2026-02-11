@@ -44,8 +44,6 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
         field_names_list = list(query_params.keys())
         value_indicators_list = [':' + field_name for field_name in field_names_list]
         
-        print(query_params)
-        
         field_names = ', '.join(field_names_list)
         value_indicators = ', '.join(value_indicators_list)
         
@@ -137,26 +135,20 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
     def write_evaluation_result(
         cls,
         evaluation_id: str,
-        first_input_file_path: str,
-        second_input_file_path: str,
-        evaluation_shortname: str,
-        random_seed: str,
-        error_type: str,
-        error_rate: str,
+        first_target: str,
+        second_target: str,
         result: int | float,
+        execution_time: float,
         notes: Optional[dict[str, Any]] = None,
         evaluation_results_table_name: str = 'evaluations'
     ):
         try:
             query_params = {
                 "evaluation_id": evaluation_id,
-                "first_input_file_path": first_input_file_path,
-                "second_input_file_path": second_input_file_path,
-                "evaluation_shortname": evaluation_shortname,
-                "random_seed": random_seed,
-                "error_type": error_type,
-                "error_rate": error_rate,
+                "first_target": first_target,
+                "second_target": second_target,
                 "result": result,
+                "execution_time": execution_time,
                 "notes": notes if notes else None,
             }
             cls.execute_insert_query(table_name=evaluation_results_table_name, query_params=query_params)
@@ -200,7 +192,8 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
     def experiment_exists(
         cls, 
         experiment_id: str, 
-        experiments_table_name: str = 'experiments'
+        experiments_table_name: str = 'experiments',
+        experiment_id_column_name: str = 'experiment_id',
     ) -> bool:
         """Checks if an experiment with the specific experiment id exists.
 
@@ -214,7 +207,7 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
         try:
             query = text(f"""
                 SELECT 1 FROM {experiments_table_name} \
-                WHERE experiment_id = :experiment_id \
+                WHERE {experiment_id_column_name} = :experiment_id \
                 LIMIT 1 
             """)
             with cls._engine.connect() as connection:
@@ -224,4 +217,35 @@ class PostgresClient(_PostgresClient, metaclass=SingletonPostgresClient):
                 return exists 
         except Exception as e:
             LOG.error(f"Failed to check existence of experiment {experiment_id}. Error: {e}")
+            raise
+        
+    @classmethod
+    def evaluation_exists(
+        cls,
+        evaluation_id: str,
+        experiment_id: str, 
+        evaluations_table_name: str = 'evaluations',
+    ) -> bool:
+        """Checks if an experiment with the specific experiment id exists.
+
+        Args:
+            experiment_id (str): The experiment id to check for existence.
+
+        Returns:
+            bool: True if it exists, else False.
+        """
+        from sqlalchemy import text
+        try:
+            query = text(f"""
+                SELECT 1 FROM {evaluations_table_name} \
+                WHERE evaluation_id = :evaluation_id AND experiment_id = :experiment_id \
+                LIMIT 1 
+            """)
+            with cls._engine.connect() as connection:
+                result = connection.execute(query, {"experiment_id": experiment_id, "evaluation_id": evaluation_id})
+                exists = result.scalar() is not None
+                LOG.info(f"Checked existence of evaluation {evaluation_id} for experiment {experiment_id}: {exists}")
+                return exists 
+        except Exception as e:
+            LOG.error(f"Failed to check existence of evaluation {evaluation_id} for experiment {experiment_id}. Error: {e}")
             raise

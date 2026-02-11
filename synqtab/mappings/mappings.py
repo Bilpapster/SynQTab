@@ -1,10 +1,11 @@
 from synqtab.enums import (
     DataErrorType, ExperimentType,
-    GeneratorModel, EvaluationMethod, 
+    GeneratorModel, EvaluationMethod,
+    EvaluationTarget
 )
 from synqtab.errors import (
     DataError, CategoricalShift, GaussianNoise, LabelError,
-    Placeholder, NearDuplicateRow, Outliers, Inconsistency
+    Placeholder, NearDuplicateRow, Outlier, Inconsistency
 )
 from synqtab.evaluators import (
     Evaluator, DCREvaluator, DesbordanteFDs,
@@ -29,7 +30,7 @@ DATA_ERROR_TYPE_TO_DATA_ERROR_CLASS: dict[DataErrorType, DataError.__class__] = 
     DataErrorType.INCONSISTENCY: Inconsistency,
     DataErrorType.LABEL_ERROR: LabelError,
     DataErrorType.NEAR_DUPLICATE: NearDuplicateRow,
-    DataErrorType.OUTLIER: Outliers,
+    DataErrorType.OUTLIER: Outlier,
     DataErrorType.PLACEHOLDER: Placeholder,
 }
 
@@ -77,3 +78,18 @@ EVALUATION_METHOD_TO_EVALUATION_CLASS: dict[EvaluationMethod, Evaluator.__class_
     EvaluationMethod.EFF: MLEfficacy,
     EvaluationMethod.QLT: QualityEvaluator,
 }
+
+SINGULAR_EVALUATION_TARGETS: list[tuple[EvaluationTarget]] = [
+    (EvaluationTarget.R,), # each one is a tuple for consistent handling with dual evaluation targets
+    (EvaluationTarget.RH,),
+    (EvaluationTarget.S,),
+    (EvaluationTarget.SH,),
+]
+
+DUAL_EVALUATION_TARGETS: list[tuple[EvaluationTarget]] = [
+    (EvaluationTarget.R, EvaluationTarget.S),
+    (EvaluationTarget.RH, EvaluationTarget.SH),
+    (EvaluationTarget.R, EvaluationTarget.RH),
+    (EvaluationTarget.S, EvaluationTarget.SH),
+    (EvaluationTarget.R, EvaluationTarget.SH),
+]

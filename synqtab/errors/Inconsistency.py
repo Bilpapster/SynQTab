@@ -12,6 +12,9 @@ class Inconsistency(DataError):
         from synqtab.enums import DataErrorType
         
         return str(DataErrorType.INCONSISTENCY)
+    
+    def full_name(self):
+        return "Representational Inconsistencies"
 
     def _apply_typo(self, categorical_value: str) -> str:
         """Applies a typo to a string value. Randomly (yet reproducibly)
@@ -48,6 +51,8 @@ class Inconsistency(DataError):
             str: the value with the typo
         """
         from synqtab.reproducibility import ReproducibleOperations
+        
+        categorical_value = str(categorical_value)
         
         extra_letter_index = ReproducibleOperations.sample_from(
             elements=range(len(categorical_value)), how_many=1
@@ -114,18 +119,22 @@ class Inconsistency(DataError):
         Returns:
             pd.DataFrame: the `data_to_corrupt`, after applying the corurption on top of it
         """
-        distinct_values = (
-            data_to_corrupt[categorical_column_to_corrupt].value_counts().index
-        )
+        distinct_values = data_to_corrupt[categorical_column_to_corrupt].value_counts().index
+        
+        # transform the column to 'object' type to avoid pd issues with categorical
+        data_to_corrupt[categorical_column_to_corrupt] = data_to_corrupt[categorical_column_to_corrupt].astype('object')
+        
+        # get the distinct values, create a typo variation of each and corrupt the selected rows
         distinct_values_with_typos = [
             self._apply_typo(distinct_value) for distinct_value in distinct_values
         ]
         replacement_values = data_to_corrupt.loc[
             rows_to_corrupt, categorical_column_to_corrupt
         ].replace(distinct_values, distinct_values_with_typos)
-        data_to_corrupt.loc[rows_to_corrupt, categorical_column_to_corrupt] = (
-            replacement_values
-        )
+        data_to_corrupt.loc[rows_to_corrupt, categorical_column_to_corrupt] = replacement_values
+        
+        # make the column categorical again once the corruption is finished
+        data_to_corrupt[categorical_column_to_corrupt] = data_to_corrupt[categorical_column_to_corrupt].astype('category')
         return data_to_corrupt
 
     def _apply_corruption(self, data_to_corrupt, rows_to_corrupt, columns_to_corrupt, **kwargs):

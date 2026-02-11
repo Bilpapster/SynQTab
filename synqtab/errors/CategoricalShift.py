@@ -21,7 +21,7 @@ class CategoricalShift(DataError):
         
         for column_to_corrupt in columns_to_corrupt:
             distinct_values = data_to_corrupt[column_to_corrupt].value_counts().index
-            permuted_distinct_values = ReproducibleOperations.permutation(distinct_values)
+            permuted_distinct_values = ReproducibleOperations.derangement(distinct_values)
             replacement_values = data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] \
                                 .replace(distinct_values, permuted_distinct_values)
             data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] = replacement_values

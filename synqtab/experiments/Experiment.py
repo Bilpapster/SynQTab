@@ -19,7 +19,6 @@ class Experiment(ABC):
     
     _delimiter: str = '#'
     _NULL: str = 'NULL'
-    translator: str
 
     def __init__(
         self,
@@ -58,11 +57,15 @@ class Experiment(ABC):
         so you can freely assume that the experiment must run.
         """
         pass
-        
-    def even_if_exists(self) -> Self:
-        LOG.info(f"Experiment {str(self)} is set to be force-computed, even if it exists in Postgres.")
-        self._should_compute = True
-        return self
+    
+    @abstractmethod
+    def _publish_tasks(self) -> Self:
+        """
+        Perform the actual publishing of tasks and any writing operations to Postgres and/or MinIO.
+        All validations have been verified before reaching this function,
+        so you can freely assume that the publishing must be performed.
+        """
+        pass
     
     # IMPORTANT: Keep this method aligned with the from_str() method!
     def _get_experiment_id_parts(self):
@@ -127,35 +130,33 @@ class Experiment(ABC):
         self._run()
         return self
     
-    def populate_tasks(self) -> Self:
+    def publish_tasks(self) -> Self:
         if not self._should_compute:
             LOG.info(f"Populating tasks for experiment {str(self)} will be skipped because the experiment already exists in Postgres.")
             return self
         
-        # TODO FIND A WAY TO POPULATE THE PARAMS AS THE SDMETRICS ARE EXPECTING TO GET THESE
-        params = dict()
-        
-        from synqtab.data import MinioClient
-        from synqtab.enums import SINGULAR_EVALUATORS, DUAL_EVALUATORS
-        from synqtab.mappings import EVALUATION_METHOD_TO_EVALUATION_CLASS
-        for evaluation_method in self.evaluators:
-            evaluator_instance = EVALUATION_METHOD_TO_EVALUATION_CLASS.get(evaluation_method)(params=params)
-            if evaluator_instance in SINGULAR_EVALUATORS:
-                # TODO POPULATE 4 TASKS, ONE FOR EACH OF THE TABLES see self._populate_task
-                pass # OR PROBABLY RETURN
-            
-            if evaluator_instance in DUAL_EVALUATORS:
-                # TODO POPULATE 5 TASKS AS AGREED see self._populate_task
-                pass
-            
-        # TODO DO THE JOB HERE
-        return self
-    
-    def _populate_task(self) -> None:
-        pass
+        return self._publish_tasks()
 
     def _exists_in_postgres(self) -> bool:
         from synqtab.data import PostgresClient
         
-        return PostgresClient.experiment_exists(str(self))
-    
+        # skip experiments that have already been executed before
+        if PostgresClient.experiment_exists(str(self)):
+            return True
+
+        # skip experiments that are known to fail
+        if PostgresClient.experiment_exists(
+            str(self),
+            experiments_table_name='errors',
+        ):
+            return True
+
+        # skip experiments that have already been skipped at least once in the past
+        if PostgresClient.experiment_exists(
+            str(self),
+            experiments_table_name='skipped_computations',
+            experiment_id_column_name='computation_id',
+        ):
+            return True
+
+        return False

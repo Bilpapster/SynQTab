@@ -4,8 +4,9 @@ from .GaussianNoise import GaussianNoise
 from .Inconsistency import Inconsistency
 from .LabelError import LabelError
 from .NearDuplicateRow import NearDuplicateRow
-from .Outlier import Outliers
+from .Outlier import Outlier
 from .Placeholder import Placeholder
+from .DataErrorApplicability import DataErrorApplicability
 
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     'Inconsistency',
     'LabelError',
     'NearDuplicateRow',
-    'Outliers',
-    'Placeholder'
+    'Outlier',
+    'Placeholder',
+    'DataErrorApplicability'
 ]

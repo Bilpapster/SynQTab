@@ -16,17 +16,16 @@ CREATE TABLE IF NOT EXISTS skipped_computations (
 );
 
 CREATE TABLE IF NOT EXISTS evaluations (
-    evaluation_id VARCHAR(255) PRIMARY KEY,
-    first_input_file_path VARCHAR(120) NOT NULL,
-    second_input_file_path VARCHAR(120),
-    evaluation_shortname VARCHAR(10) NOT NULL,
-    random_seed VARCHAR(10) NOT NULL,
-    error_type VARCHAR(10) NOT NULL,
-    error_rate VARCHAR(3) NOT NULL,
+    evaluation_id VARCHAR(100) NOT NULL,
+    experiment_id VARCHAR(255) NOT NULL,
+    first_target VARCHAR(5) NOT NULL,
+    second_target VARCHAR(5),
     result NUMERIC NOT NULL,
     notes JSONB,
+    execution_time NUMERIC NOT NULL,
     execution_profile VARCHAR(20),
-    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Athens')
+    created_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Athens'),
+    PRIMARY KEY(evaluation_id, experiment_id)
 );
 
 CREATE TABLE IF NOT EXISTS experiments (

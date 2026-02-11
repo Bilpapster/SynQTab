@@ -143,14 +143,16 @@ def process_dataset(name: str, csv_path: str, yaml_path: str) -> pd.DataFrame:
         else:
             LOG.error(f"No target feature found in yaml for classification dataset: {name}")
 
-    # 2. Read CSV data
+    # 2. Read CSV data and explicitly set the categorical columns
     df = pd.read_csv(csv_path)
     initial_rows, initial_columns = df.shape
+    for column in categorical_features:
+        df[column] = df[column].astype('category')
 
     # 3. If needed, perform dataset-specific, additional curation steps          
     if name in DATASETS_REQUIRING_SPECIAL_CURATION:
         df = DATASET_NAME_TO_CURATION_FUNCTION[name](df)
-        
+
     # 4. Drop columns with more than 50% NaN values
     nan_mask = df.isna()
     columns = df.columns

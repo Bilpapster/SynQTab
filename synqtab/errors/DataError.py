@@ -35,24 +35,16 @@ class DataError(ABC):
         pass
 
     def validate_instance_attributes(self) -> None:
-        # self.validate_random_seed()
         self.validate_row_fraction()
         self.validate_column_fraction()
         self.validate_options()
 
     def initialize_other_attributes(self):
-        # ReproducibleOperations.set_random_seed(self.random_seed)
         self.categorical_columns = []
         self.numeric_columns = []
         self.rows_to_corrupt = []
         self.columns_to_corrupt = []
         self.corrupted_data = None
-
-    # def validate_random_seed(self) -> None:
-    #     if not self.random_seed:
-    #         raise ReproducibilityError(
-    #             f"Setting the random seed to None is not reproducible. I was expecting any integer or float number."
-    #         )
 
     def validate_row_fraction(self) -> None:
         if not 0 <= self.row_fraction <= 1:
@@ -69,7 +61,7 @@ class DataError(ABC):
     def validate_options(self) -> None:
         pass
 
-    def find_numerical_categorical_columns(self, **kwargs) -> None:
+    def infer_numerical_categorical_columns(self, **kwargs) -> None:
         self.categorical_columns = [
             column
             for column in self.corrupted_data.columns
@@ -79,6 +71,16 @@ class DataError(ABC):
             column
             for column in self.corrupted_data.columns
             if pd.api.types.is_numeric_dtype(self.corrupted_data[column].dtype)
+        ]
+        
+    def set_numerical_categorical_columns(self, categorical_columns: list[str], target_column: str, **kwargs) -> None:
+        self.categorical_columns = [
+            column for column in categorical_columns
+            if column in self.corrupted_data.columns
+        ]
+        self.numeric_columns = [
+            column for column in self.corrupted_data.columns
+            if column not in categorical_columns and column != target_column
         ]
 
     def identify_rows_to_corrupt(self, data: pd.DataFrame, **kwargs) -> None:
@@ -115,20 +117,33 @@ class DataError(ABC):
                     f"Valid options: {[option.value for option in DataErrorApplicability]}."
                 )
 
-    def corrupt(self, data: pd.DataFrame, **kwargs) -> Tuple[pd.DataFrame, List, List]:
+    def corrupt(
+        self,
+        data: pd.DataFrame,
+        categorical_columns: Optional[list[str]]=None,
+        target_column: Optional[str]=None,
+        **kwargs
+    )-> Tuple[pd.DataFrame, List, List]:
+        
         # prepare for corruption
         self.corrupted_data = data.copy(deep=True)
-        self.find_numerical_categorical_columns(**kwargs)
+        
+        if categorical_columns is not None:
+            self.set_numerical_categorical_columns(categorical_columns, target_column)
+        else:
+            self.infer_numerical_categorical_columns(**kwargs)
+        
         self.identify_rows_to_corrupt(data, **kwargs)
         self.identify_columns_to_corrupt(**kwargs)
         
         # columns_to_corrupt == [] can happen if e.g., a categorical error must be applied but no categorical cols exist
-        if self.columns_to_corrupt: 
+        if len(self.columns_to_corrupt) > 0:
             # apply corruption; this is meant to be overriden for each specific data error type
             self.corrupted_data = self._apply_corruption(
                 data_to_corrupt=self.corrupted_data,
                 rows_to_corrupt=self.rows_to_corrupt,
                 columns_to_corrupt=self.columns_to_corrupt,
+                target_column=target_column,
                 **kwargs,
             )
 

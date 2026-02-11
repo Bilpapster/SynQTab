@@ -26,7 +26,7 @@ class GaussianNoise(DataError):
         from numpy import std
         from synqtab.reproducibility import ReproducibleOperations
         
-        for column_to_corrupt in columns_to_corrupt:
+        for column_to_corrupt in columns_to_corrupt:            
             stddev = std(data_to_corrupt[column_to_corrupt])
             scale = ReproducibleOperations.uniform(
                 low=self.SCALING_MIN, high=self.SCALING_MAX
@@ -34,6 +34,13 @@ class GaussianNoise(DataError):
             noise = ReproducibleOperations.normal(
                 loc=self.NORMAL_MEAN, scale=scale * stddev, size=len(rows_to_corrupt)
             )
+            
+            # if the column is declared as 'int*' in pandas (e.g,, 'int64'), then corrupt realistically 
+            # by casting the noise to int. This simulates that the noise is produced from the source
+            # but the actual values of the dataframe are casted to int so they are not distinguishable
+            if 'int' in str(data_to_corrupt.dtypes[column_to_corrupt]):
+                noise = [max(int(noise_factor), 1) for noise_factor in noise]
+                        
             data_to_corrupt.loc[rows_to_corrupt, column_to_corrupt] += noise
 
         return data_to_corrupt
