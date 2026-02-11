@@ -37,7 +37,7 @@ def execute_single_script(
         enable_internet: bool = True,
         is_private: bool = True,
         accelerator: str = "NvidiaTeslaT4"
-):
+) -> KernelStatus:
     """
     Execute a Python script on Kaggle using the Kaggle Kernels API.
 
@@ -57,6 +57,7 @@ def execute_single_script(
 
     # Create kernel metadata
     kernel_slug = title.lower().replace(' ', '-')
+
     metadata = {
         "id": f"{username}/{kernel_slug}",
         "title": title,
@@ -106,10 +107,15 @@ def execute_single_script(
     # Cleanup
     shutil.rmtree(temp_dir)
 
-    if result.returncode != 0:
-        raise RuntimeError(f"Kaggle push failed: {result.stderr}")
-
-    return result.stdout
+    if "Maximum weekly GPU quota" in result.stdout:
+        logger.error(f"GPU Quota has been reached for {username}")
+        return KernelStatus.FAILED
+    elif "Notebook not found" in result.stdout:
+        logger.error(f"Notebook not present in Kaggle UI. Please upload a first version of your notebook using kaggle.com")
+        return KernelStatus.FAILED
+    
+    logger.info(result.stdout)
+    return KernelStatus.COMPLETE
 
 def fix_notebook_metadata(file_path):
     import nbformat
@@ -271,6 +277,24 @@ def run_kaggle_scripts_multi_profile(
                 status=KernelStatus.PENDING
             )
 
+    # Calculate total jobs
+    total_jobs = len(all_jobs)
+    total_completed = 0
+    total_failed = 0
+
+    def mark_failed(job_id: str) -> None:
+        """Mark a job as failed exactly once and update counters."""
+        nonlocal total_failed
+        job = all_jobs[job_id]
+        profile = profile_info[job.profile_name]
+
+        if job_id in profile['failed']:
+            return
+
+        profile['failed'].add(job_id)
+        job.status = KernelStatus.FAILED
+        total_failed += 1
+
     def submit_job(job_id: str) -> bool:
         """Submit a job to Kaggle for a specific profile. Returns True if successful."""
         job = all_jobs[job_id]
@@ -280,7 +304,7 @@ def run_kaggle_scripts_multi_profile(
             # Set credentials for this profile before submission
             set_kaggle_credentials(profile['credential_name'])
 
-            execute_single_script(
+            status = execute_single_script(
                 script_path=job.script_path,
                 username=profile['username'],
                 title=f"{job.kernel_slug}",
@@ -290,13 +314,38 @@ def run_kaggle_scripts_multi_profile(
                 accelerator=accelerator
             )
 
-            job.status = KernelStatus.RUNNING
+            job.status = status
+            if job.status == KernelStatus.FAILED:
+                if job.retry_count < max_retries:
+                    job.retry_count += 1
+                    job.status = KernelStatus.PENDING
+                    logger.info(
+                        f"⟳ Retry {job.retry_count}/{max_retries} [{job.profile_name}]: {job.script_path}"
+                    )
+                else:
+                    mark_failed(job_id)
+                    logger.error(
+                        f"✗ Failed permanently [{job.profile_name}]: {job.script_path}"
+                    )
+                return False
+            
             profile['running'].add(job_id)
             logger.info(f"✓ Started [{job.profile_name}]: {job.script_path} (slug: {job.kernel_slug})")
             return True
 
         except Exception as e:
             logger.error(f"✗ Failed to submit [{job.profile_name}] {job.script_path}: {e}")
+            if job.retry_count < max_retries:
+                job.retry_count += 1
+                job.status = KernelStatus.PENDING
+                logger.info(
+                    f"⟳ Retry {job.retry_count}/{max_retries} [{job.profile_name}]: {job.script_path}"
+                )
+            else:
+                mark_failed(job_id)
+                logger.error(
+                    f"✗ Failed permanently [{job.profile_name}]: {job.script_path}"
+                )
             return False
 
     def check_job_status(job_id: str) -> KernelStatus:
@@ -322,11 +371,6 @@ def run_kaggle_scripts_multi_profile(
         except Exception as e:
             logger.error(f"✗ Error checking status [{job.profile_name}] {job.script_path}: {e}")
             return KernelStatus.FAILED
-
-    # Calculate total jobs
-    total_jobs = len(all_jobs)
-    total_completed = 0
-    total_failed = 0
 
     # Main execution loop
     while total_completed + total_failed < total_jobs:
@@ -356,8 +400,7 @@ def run_kaggle_scripts_multi_profile(
                         logger.info(f"⟳ Retry {job.retry_count}/{max_retries} [{job.profile_name}]: {job.script_path}")
                         notify_script_failed(job.script_path, job.kernel_slug, job.retry_count, max_retries)
                     else:
-                        profile['failed'].add(job_id)
-                        total_failed += 1
+                        mark_failed(job_id)
                         logger.error(f"✗ Failed permanently [{job.profile_name}]: {job.script_path}")
                         notify_script_failed(job.script_path, job.kernel_slug, job.retry_count, max_retries)
 
@@ -380,6 +423,7 @@ def run_kaggle_scripts_multi_profile(
 
         # Wait before next check
         any_running = any(len(p['running']) > 0 for p in profile_info.values())
+
         if any_running:
             time.sleep(check_interval)
 
@@ -412,21 +456,6 @@ def run_kaggle_scripts_multi_profile(
                           [jid for p in profile_info.values() for jid in p['failed']]]
 
     notify_batch_summary(total_completed, total_failed, total_jobs, all_failed_scripts)
-
-    return {
-        'total_completed': total_completed,
-        'total_failed': total_failed,
-        'total_jobs': total_jobs,
-        'profiles': {
-            pname: {
-                'completed': list(pinfo['completed']),
-                'failed': list(pinfo['failed']),
-                'credential_name': pinfo['credential_name']
-            }
-            for pname, pinfo in profile_info.items()
-        },
-        'jobs': all_jobs
-    }
 
 
 def set_kaggle_credentials(credential_name: str):
