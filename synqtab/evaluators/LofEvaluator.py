@@ -15,6 +15,7 @@ class LofEvaluator(Evaluator):
     def __init__(self, params):
         self.n_neighbors = 5
         self.contamination = 'auto'
+        self.params = params
         
     def short_name(self):
         from synqtab.enums import EvaluationMethod

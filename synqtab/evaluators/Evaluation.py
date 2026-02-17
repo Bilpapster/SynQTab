@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Self
 
 from synqtab.data.Dataset import Dataset
@@ -14,7 +13,7 @@ from synqtab.utils import get_logger
 LOG = get_logger(__file__)
 
 
-class Evaluation(ABC):
+class Evaluation():
     
     _delimiter: str = '#'
     _NULL: str = 'NULL'
@@ -32,13 +31,117 @@ class Evaluation(ABC):
         self.experiment = experiment
         self.evaluation_method = evaluation_method
         self.evaluator = EVALUATION_METHOD_TO_EVALUATION_CLASS.get(self.evaluation_method)(params=params)
-        self.params = params
+        self.params = params if params is not None else dict()
         
         self._should_compute = (not self._exists_in_postgres())
-        
-    @abstractmethod
+    
     def _run(self):
-        pass
+        from synqtab.data import PostgresClient, MinioClient
+        from synqtab.enums import ProblemType, DataPerfectness, EvaluationInput, EvaluationTarget, MinioBucket, EvaluationOutput
+        from synqtab.mappings.mappings import EVALUATION_METHOD_TO_EVALUATION_CLASS
+        from synqtab.reproducibility import ReproducibleOperations
+        from synqtab.utils import timed_computation
+        
+        evaluation_full_name = str(self) + '/' + str(self.experiment)
+        LOG.info(f"Entering the _run() function of Evaluation {evaluation_full_name}")
+        
+        real_perfect_df = self.experiment.dataset._fetch_real_perfect_dataframe()
+        target_column_name = self.experiment.dataset.target_feature
+        target = real_perfect_df[target_column_name]
+        problem_type = ProblemType(self.experiment.dataset.problem_type)
+        sdmetrics_metadata = self.experiment.dataset.get_sdmetrics_single_table_metadata()
+        training_df, validation_df = ReproducibleOperations.train_test_split(
+            real_perfect_df, test_size=0.5, stratify=target, problem_type=problem_type)
+        
+        # use the class with the least frequency as minority class. If it is a regression problem, this
+        # EvaluationInput key is not used downstream. So, this implementation targets only classification datasets.
+        minority_class = validation_df[target_column_name].value_counts(sort=True, ascending=True).index[0]
+        
+        evaluation_target_dfs = []
+        for evaluation_target in self.evaluation_targets:
+            data = None
+            match evaluation_target:
+                case EvaluationTarget.R:
+                    LOG.info("Getting perfect R data from dataset + train test split")
+                    data = training_df
+
+                case EvaluationTarget.RH:
+                    if self.experiment.data_perfectness == DataPerfectness.PERFECT:
+                        raise ValueError(f"Cannot create real corrupted data from a perfect experiment object.")
+                    
+                    LOG.info("Getting imperfect data as perfect + corruption")
+                    data_error_instance = self.experiment.data_error.get_class()(row_fraction=self.experiment.data_error_rate)
+                    data, corrupted_rows, corrupted_cols = data_error_instance.corrupt(
+                        data=training_df,
+                        categorical_columns=self.experiment.dataset.categorcal_features,
+                        target_column=self.experiment.dataset.target_feature,
+                    )
+                    if self.experiment.data_perfectness == DataPerfectness.SEMIPERFECT:
+                        data.drop(corrupted_rows)
+
+                case EvaluationTarget.S:
+                    perfect_counterpart_experiment = self.experiment.perfect_counterpart()
+                    LOG.info("Getting S data from Synthetic bucket " + perfect_counterpart_experiment.minio_path())
+                    data = MinioClient.read_parquet_from_bucket(
+                        bucket_name=MinioBucket.SYNTHETIC,
+                        object_name=perfect_counterpart_experiment.minio_path(),
+                    )
+
+                case EvaluationTarget.SH:
+                    data = MinioClient.read_parquet_from_bucket(
+                        bucket_name=MinioBucket.SYNTHETIC,
+                        object_name=self.experiment.minio_path(),
+                    )
+                    
+                case _ as not_implemented_evaluation_target:
+                    raise NotImplementedError(
+                        f"Unknown evaluation target type. Got {not_implemented_evaluation_target}. " +
+                        f"Valid options: {[str(option) for option in EvaluationTarget]}."
+                    )
+            
+            for column in data.columns:
+                if column in self.experiment.dataset.categorcal_features:
+                    data[column] = data[column].astype('category')
+                    
+            for column in validation_df:
+                if column in self.experiment.dataset.categorcal_features:
+                    validation_df[column] = validation_df[column].astype('category')
+            
+            evaluation_target_dfs.append(data)
+        
+                  
+        params = {
+            str(EvaluationInput.PROBLEM_TYPE): str(problem_type),
+            str(EvaluationInput.METADATA): sdmetrics_metadata,
+            str(EvaluationInput.REAL_VALIDATION_DATA): validation_df,
+            str(EvaluationInput.NOTES): True,
+            str(EvaluationInput.PREDICTION_COLUMN_NAME): target_column_name,
+            str(EvaluationInput.KNOWN_COLUMN_NAMES): self.params.get(str(EvaluationInput.KNOWN_COLUMN_NAMES), list(training_df.columns)),
+            str(EvaluationInput.SENSITIVE_COLUMN_NAMES): self.params.get(str(EvaluationInput.SENSITIVE_COLUMN_NAMES), []),
+            str(EvaluationInput.REAL_TRAINING_DATA): evaluation_target_dfs[0], # used by dual evaluators
+            str(EvaluationInput.DATA): evaluation_target_dfs[0],               # used by singular evaluators
+            str(EvaluationInput.SYNTHETIC_DATA): evaluation_target_dfs[1] if len(evaluation_target_dfs) > 1 else None,
+            str(EvaluationInput.MINORITY_CLASS_LABEL): minority_class,
+        }
+        
+        evaluator_instance = EVALUATION_METHOD_TO_EVALUATION_CLASS.get(self.evaluation_method)(params)
+        
+        evaluation_output, elapsed_time = timed_computation(
+            computation=evaluator_instance.evaluate,
+            params=dict(),
+        )
+        
+        import json
+        PostgresClient.write_evaluation_result(
+            evaluation_id=str(self),
+            experiment_id=str(self.experiment),
+            first_target=str(self.evaluation_targets[0]),
+            second_target=str(self.evaluation_targets[1]) if len(self.evaluation_targets) > 1 else None,
+            result=evaluation_output.get(EvaluationOutput.RESULT),
+            execution_time=elapsed_time,
+            notes=json.dumps(evaluation_output.get(EvaluationOutput.NOTES))
+        )
+
         
     def _is_valid(self) -> bool: 
         return self.evaluator.is_compatible_with(self.experiment.dataset)

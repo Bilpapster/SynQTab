@@ -112,6 +112,15 @@ class Experiment(ABC):
         experiment_id_parts = self._get_experiment_id_parts()
         return self._delimiter.join(experiment_id_parts)
     
+    def perfect_counterpart(self) -> Self:
+        from copy import deepcopy
+        
+        perfect_experiment = deepcopy(self)
+        perfect_experiment.data_perfectness = DataPerfectness.PERFECT
+        perfect_experiment.data_error = None
+        perfect_experiment.data_error_rate = None
+        return perfect_experiment
+    
     def minio_path(self):
         from synqtab.enums import MinioFolder
         
