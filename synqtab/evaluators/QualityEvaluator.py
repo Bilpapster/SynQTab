@@ -34,7 +34,7 @@ class QualityEvaluator(Evaluator):
             )
 
             if not self.params.get('notes', False):
-                return quality_report.get_score()
+                return quality_report.get_score().item()
 
             # Get detailed property scores (Column Shapes, Column Pair Trends)
             report = dict()
@@ -48,7 +48,7 @@ class QualityEvaluator(Evaluator):
                 details = quality_report.get_details(property_name=prop_name)
                 report[f'{clean_prop_name}_Details'] = details.to_dict(orient='records')
 
-            return quality_report.get_score(), report
+            return quality_report.get_score().item(), {"gamw": "to sdmetrics quality report"} # get_score returns np.float64 and Postgres crashes when inserting; using item() to convert to python native type float
 
         except Exception as e:
             # TODO LOG ERROR

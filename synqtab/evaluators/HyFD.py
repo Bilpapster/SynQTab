@@ -1,4 +1,10 @@
+from pathlib import Path
+
 from synqtab.evaluators.Evaluator import Evaluator
+
+# Get absolute path to synqtab package directory (parent of evaluators/)
+_SYNQTAB_DIR = Path(__file__).resolve().parent.parent
+_JARS_DIR = _SYNQTAB_DIR / "jars"
 
 
 class HyFD(Evaluator):
@@ -17,33 +23,41 @@ class HyFD(Evaluator):
         return "HyFD Functional Dependencies Discovery"
     
     def compute_result(self):
-        from pathlib import Path
+        from synqtab.enums import EvaluationInput
         
-        data = self.params.get('data')
-        temp_csv_path = "temp_data.csv"
+        data = self.params.get('data') or self.params.get(EvaluationInput.DATA)
+        
+        # Use absolute path for temp file in jars directory
+        temp_csv_path = _JARS_DIR / "temp_data.csv"
         data.to_csv(temp_csv_path, index=False)
         
         try:
             # Run HyFD on the temporary CSV file
-            self.run_hyfd(data_path=temp_csv_path)
+            self.run_hyfd(data_path=str(temp_csv_path))
 
             # Parse the results and return simplified JSON format
             results = self.parse_hyfd_results()
 
-            if self.params.get('notes', False):
+            notes_enabled = self.params.get('notes', False) or self.params.get(EvaluationInput.NOTES, False)
+            if notes_enabled:
                 return results["num_fds"], {'FDs': results['fds']}
             return results["num_fds"]
             
         finally:
             # Clean up the temporary CSV file
-            Path(temp_csv_path).unlink(missing_ok=True)
+            temp_csv_path.unlink(missing_ok=True)
 
     def run_hyfd(self, data_path: str):
         import subprocess
         
+        # Build classpath with absolute paths
+        metanome_jar = _JARS_DIR / "metanome-cli.jar"
+        hyfd_jar = _JARS_DIR / "HyFD.jar"
+        classpath = f"{metanome_jar}:{hyfd_jar}"
+        
         # Call the Java executable directly from Python
         cmd = [
-            "java", "-Xmx16g", "-cp", "../jars/metanome-cli.jar:../jars/HyFD.jar",
+            "java", "-Xmx16g", "-cp", classpath,
             "de.metanome.cli.App",
             "--algorithm", "de.metanome.algorithms.hyfd.HyFD",
             "--file-key", "INPUT_GENERATOR",
@@ -52,8 +66,8 @@ class HyFD(Evaluator):
             "--header",  # Indicate that first row is a header
             "--output", "file"
         ]
-        # Redirect stdout and stderr to suppress terminal output
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Run from jars directory so results go there
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=_JARS_DIR)
 
     def parse_hyfd_results(self) -> dict:
         """
@@ -65,10 +79,9 @@ class HyFD(Evaluator):
                 - 'fds': A list of FDs in the format "A -> B"
         """
         import json, os
-        from pathlib import Path
         
-        # Find the most recent results file in the results directory
-        results_dir = Path("results")
+        # Results are created in jars/results/ since we run subprocess with cwd=_JARS_DIR
+        results_dir = _JARS_DIR / "results"
         if not results_dir.exists():
             return {"num_fds": 0, "fds": []}
 

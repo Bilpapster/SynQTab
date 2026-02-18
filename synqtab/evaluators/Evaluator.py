@@ -4,7 +4,7 @@ from synqtab.data import Dataset
 
 
 class EvaluationResult():
-    def __init__(self, result: int | float, notes: dict | None):
+    def __init__(self, result: int | float, notes: dict | None = None):
         self.result = result
         self.notes = notes
 
@@ -29,8 +29,9 @@ class Evaluator(ABC):
         return True
 
     def evaluate(self) -> dict:
-        self.prepare_evaluation(self.params)
-        evaluation_result = EvaluationResult(self.compute_result(self.params))
+        self.prepare_evaluation()
+        result, notes = self.compute_result()
+        evaluation_result = EvaluationResult(result, notes)
         return self._standardize_evaluation_result(evaluation_result)
     
     def prepare_evaluation(self) -> None:
