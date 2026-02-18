@@ -28,7 +28,7 @@ class TabEBM(Generator):
         # Identify columns
         X_cat_cols = X_initial.select_dtypes(include=['object', 'category', 'bool']).columns
         X_num_cols = X_initial.select_dtypes(exclude=['object', 'category', 'bool']).columns
-        y_col_name = y_initial.columns[0]
+        y_col_name = y_initial.name # y_initial is pd.Series
 
         # ---------------------------------------------------------
         # 2. Process X (Features) - Ordinal Encoding for Categorical, Keep Numeric as is
@@ -52,7 +52,7 @@ class TabEBM(Generator):
         # ---------------------------------------------------------
         # TabEBM generates "per class" (class_0, class_1). We must map y to integers 0..N
         y_encoder = LabelEncoder()
-        y_final = y_encoder.fit_transform(y_initial.iloc[:, 0])
+        y_final = y_encoder.fit_transform(y_initial)
         
         n_classes = len(y_encoder.classes_)
 
