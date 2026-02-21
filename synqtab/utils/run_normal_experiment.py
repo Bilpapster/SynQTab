@@ -30,8 +30,8 @@ for random_seed in experimental_params.get('random_seeds'):
                     data_perfectness=DataPerfectness.PERFECT, # only perfect data at first
                     evaluation_methods=None,
                 )
-                force = (dataset.problem_type == str(ProblemType.REGRESSION))
-                normal_experiment.run(force=force) # force-compute the regression datasets
+
+                normal_experiment.run() # force-compute the regression datasets
             except Exception as e:
                 LOG.error(
                     f'The experiment {str(normal_experiment)} failed but I will continue to the next one.' +
@@ -61,7 +61,6 @@ for random_seed in experimental_params.get('random_seeds'):
                                 # Semi-perfect for near duplicates is the same as perfect, no need to compute
                                 continue
                             
-                            force = (dataset.problem_type == str(ProblemType.REGRESSION))
                             normal_experiment = NormalExperiment(
                                 dataset=dataset,
                                 generator=model,
@@ -70,7 +69,7 @@ for random_seed in experimental_params.get('random_seeds'):
                                 data_perfectness=perfectness_level,
                                 evaluation_methods=experimental_params.get('evaluation_methods'),
                             )
-                            normal_experiment.run(force=force).publish_tasks()
+                            normal_experiment.run().publish_tasks()
                             
                         except Exception as e:
                             LOG.error(
