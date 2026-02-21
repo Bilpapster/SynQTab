@@ -25,7 +25,7 @@ class HyFD(Evaluator):
     def compute_result(self):
         from synqtab.enums import EvaluationInput
         
-        data = self.params.get('data') or self.params.get(EvaluationInput.DATA)
+        data = self.params.get(str(EvaluationInput.DATA))
         
         # Use absolute path for temp file in jars directory
         temp_csv_path = _JARS_DIR / "temp_data.csv"
