@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from synqtab.evaluators.Evaluator import Evaluator
+from synqtab.environment import MAX_COLUMNS_FOR_FD_DISCOVERY
 
 # Get absolute path to synqtab package directory (parent of evaluators/)
 _SYNQTAB_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,8 @@ class HyFD(Evaluator):
         from synqtab.enums import EvaluationInput
         
         data = self.params.get(str(EvaluationInput.DATA))
+        if len(data.columns) >= MAX_COLUMNS_FOR_FD_DISCOVERY:
+            return -1
         
         # Use absolute path for temp file in jars directory
         temp_csv_path = _JARS_DIR / "temp_data.csv"
